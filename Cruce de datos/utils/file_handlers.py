@@ -52,28 +52,35 @@ def separar_por_activo(df, columna_activo=None):
     return df_activos, df_inactivos
 
 
-def guardar_csv_formato_especial(df, archivo_salida, columnas=['Nombre', 'Apellido', 'Email', 'RUT']):
+def guardar_csv_formato_especial(df, archivo_salida, columnas=['Nombre', 'Apellido', 'Email', 'RUT'], solo_rut=False):
     """
     Guarda un DataFrame en formato CSV especial: "campo1,campo2,campo3,campo4",
+    O en formato simplificado solo con RUTs: "rut1",
     
     Args:
         df: DataFrame de pandas con las columnas a guardar
         archivo_salida: Ruta del archivo de salida
         columnas: Lista de nombres de columnas en el orden deseado
+        solo_rut: Si es True, solo guarda la columna RUT en formato simple
     
     Returns:
         None
     """
     with open(archivo_salida, 'w', encoding='utf-8-sig') as f:
-        # Escribir encabezado
-        encabezado = ','.join(columnas)
-        f.write(f'"{encabezado}"\n')
-        
-        # Escribir cada fila
-        for _, row in df.iterrows():
-            valores = [str(row[col]) for col in columnas]
-            linea = ','.join(valores)
-            f.write(f'"{linea}",\n')
+        if solo_rut:
+            # Formato simplificado: solo RUTs
+            for _, row in df.iterrows():
+                f.write(f'"{row["RUT"]}",\n')
+        else:
+            # Formato completo con encabezado
+            encabezado = ','.join(columnas)
+            f.write(f'"{encabezado}"\n')
+            
+            # Escribir cada fila
+            for _, row in df.iterrows():
+                valores = [str(row[col]) for col in columnas]
+                linea = ','.join(valores)
+                f.write(f'"{linea}",\n')
 
 
 def guardar_excel_completo(df, archivo_salida):
@@ -164,15 +171,21 @@ def buscar_archivo_en_data(base_dir, patron_busqueda):
     Returns:
         Ruta completa del archivo encontrado o None
     """
-    data_dir = os.path.join(base_dir, 'data')
-    
-    if not os.path.exists(data_dir):
-        return None
-    
-    for filename in os.listdir(data_dir):
-        if all(patron in filename for patron in patron_busqueda):
-            return os.path.join(data_dir, filename)
-    
+    # Buscar en posibles ubicaciones de la carpeta `data`.
+    posibles_dirs = [
+        os.path.join(base_dir, 'data'),
+        os.path.join(base_dir, 'obtenerData', 'data')
+    ]
+
+    for data_dir in posibles_dirs:
+        if not os.path.exists(data_dir):
+            continue
+
+        for filename in os.listdir(data_dir):
+            nombre_lower = filename.lower()
+            if all(patron.lower() in nombre_lower for patron in patron_busqueda):
+                return os.path.join(data_dir, filename)
+
     return None
 
 

@@ -115,6 +115,19 @@ def comparar_sonda():
     # 3. RUTs en BICE que NO están en Carga
     bice_no_en_carga = ruts_bice - ruts_carga
     
+    # Detectar diferencias de cantidad
+    print("\n🔢 Detectando diferencias de cantidad por RUT...")
+    diferencias_cantidad = []
+    for rut in coincidencias:
+        cantidad_carga = len(df_carga[df_carga['RUT_NORM'] == rut])
+        cantidad_bice = len(df_bice[df_bice['RUT_NORM'] == rut])
+        if cantidad_carga != cantidad_bice:
+            diferencias_cantidad.append({
+                'rut': rut,
+                'cantidad_carga': cantidad_carga,
+                'cantidad_bice': cantidad_bice
+            })
+    
     print("\n" + "="*80)
     print("📊 RESULTADOS DE LA COMPARACIÓN")
     print("="*80)
@@ -123,14 +136,21 @@ def comparar_sonda():
     print(f"\n⚠️  INCONSISTENCIAS:")
     print(f"  1. RUTs en Carga pero NO en BICE: {len(carga_no_en_bice)}")
     print(f"  2. RUTs en BICE pero NO en Carga: {len(bice_no_en_carga)}")
+    print(f"  3. RUTs con diferente cantidad de registros: {len(diferencias_cantidad)}")
     
     # Crear DataFrames de resultados
     resultados = []
     
-    # 1. Coincidencias
+    # 1. Coincidencias (con cantidad correcta)
+    ruts_con_diferencia_cantidad = set([d['rut'] for d in diferencias_cantidad])
     for rut in coincidencias:
+        if rut in ruts_con_diferencia_cantidad:
+            continue  # Se procesarán después
+        
         reg_carga = df_carga[df_carga['RUT_NORM'] == rut].iloc[0]
         reg_bice = df_bice[df_bice['RUT_NORM'] == rut].iloc[0]
+        cantidad_carga = len(df_carga[df_carga['RUT_NORM'] == rut])
+        cantidad_bice = len(df_bice[df_bice['RUT_NORM'] == rut])
         
         resultados.append({
             'RUT': rut,
@@ -142,7 +162,30 @@ def comparar_sonda():
             'APELLIDO_BICE': reg_bice.get('Apellido', ''),
             'EMAIL_CARGA': reg_carga.get('Correo electrónico', ''),
             'EMAIL_BICE': reg_bice.get('Email', ''),
+            'CANTIDAD_CARGA': cantidad_carga,
+            'CANTIDAD_BICE': cantidad_bice,
             'OBSERVACION': 'OK - RUT presente en ambos archivos'
+        })
+    
+    # 1b. Diferencias de cantidad
+    for diff in diferencias_cantidad:
+        rut = diff['rut']
+        reg_carga = df_carga[df_carga['RUT_NORM'] == rut].iloc[0]
+        reg_bice = df_bice[df_bice['RUT_NORM'] == rut].iloc[0]
+        
+        resultados.append({
+            'RUT': rut,
+            'ESTADO': 'DIFERENCIA_CANTIDAD',
+            'TIPO': 'SONDA',
+            'NOMBRES_CARGA': reg_carga.get('Nombres', ''),
+            'APELLIDOS_CARGA': f"{reg_carga.get('Primer apellido', '')} {reg_carga.get('Segundo apellido', '')}".strip(),
+            'NOMBRE_BICE': reg_bice.get('Nombre', ''),
+            'APELLIDO_BICE': reg_bice.get('Apellido', ''),
+            'EMAIL_CARGA': reg_carga.get('Correo electrónico', ''),
+            'EMAIL_BICE': reg_bice.get('Email', ''),
+            'CANTIDAD_CARGA': diff['cantidad_carga'],
+            'CANTIDAD_BICE': diff['cantidad_bice'],
+            'OBSERVACION': f"DIFERENCIA - Carga tiene {diff['cantidad_carga']} registros, BICE tiene {diff['cantidad_bice']} registros"
         })
     
     # 2. En Carga pero no en BICE
@@ -185,8 +228,9 @@ def comparar_sonda():
     # Orden de estados
     orden_estados = {
         'COINCIDENCIA': 1,
-        'CARGA_SIN_BICE': 2,
-        'BICE_SIN_CARGA': 3
+        'DIFERENCIA_CANTIDAD': 2,
+        'CARGA_SIN_BICE': 3,
+        'BICE_SIN_CARGA': 4
     }
     
     # Usar función común para separar y guardar
@@ -197,6 +241,42 @@ def comparar_sonda():
     
     # Imprimir resumen usando función común
     imprimir_resumen(df_coincidencias, df_inconsistencias, archivos)
+    
+    # Generar CSV especial para registros en CARGA que NO están en BICE (hay que agregarlos)
+    df_carga_sin_bice = df_inconsistencias[df_inconsistencias['ESTADO'] == 'CARGA_SIN_BICE'].copy()
+    if len(df_carga_sin_bice) > 0:
+        # Preparar DataFrame con el formato requerido
+        df_csv_carga = pd.DataFrame({
+            'Nombre': df_carga_sin_bice['NOMBRES_CARGA'],
+            'Apellido': df_carga_sin_bice['APELLIDOS_CARGA'],
+            'Email': df_carga_sin_bice['EMAIL_CARGA'],
+            'RUT': df_carga_sin_bice['RUT']
+        })
+        
+        # Guardar en formato especial
+        from utils.file_handlers import guardar_csv_formato_especial
+        resultado_dir = os.path.join(script_dir, 'resultado')
+        archivo_csv_carga = os.path.join(resultado_dir, f'carga_sin_bice_sonda_{timestamp}.csv')
+        guardar_csv_formato_especial(df_csv_carga, archivo_csv_carga)
+        print(f"   📄 Carga sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga)}")
+    
+    # Generar CSV especial para registros en BICE que NO están en Carga
+    df_bice_sin_carga = df_inconsistencias[df_inconsistencias['ESTADO'] == 'BICE_SIN_CARGA'].copy()
+    if len(df_bice_sin_carga) > 0:
+        # Preparar DataFrame con el formato requerido
+        df_csv_especial = pd.DataFrame({
+            'Nombre': df_bice_sin_carga['NOMBRE_BICE'],
+            'Apellido': df_bice_sin_carga['APELLIDO_BICE'],
+            'Email': df_bice_sin_carga['EMAIL_BICE'],
+            'RUT': df_bice_sin_carga['RUT']
+        })
+        
+        # Guardar en formato especial
+        from utils.file_handlers import guardar_csv_formato_especial
+        resultado_dir = os.path.join(script_dir, 'resultado')
+        archivo_csv_especial = os.path.join(resultado_dir, f'bice_sin_carga_sonda_{timestamp}.csv')
+        guardar_csv_formato_especial(df_csv_especial, archivo_csv_especial, solo_rut=True)
+        print(f"   📄 BICE sin Carga (formato carga): {os.path.basename(archivo_csv_especial)}")
     
     # Mostrar muestras
     if len(df_inconsistencias) > 0:

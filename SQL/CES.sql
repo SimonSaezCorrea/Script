@@ -1,3 +1,12 @@
+-- Q(1) -> 20XX-01-01 <= X < 20XX-04-01
+-- Q(2) -> 20XX-04-01 <= X < 20XX-07-01
+-- Q(3) -> 20XX-07-01 <= X < 20XX-010-01
+-- Q(4) -> 20XX-10-01 <= X < 20XX+1-01-01
+
+-- CES Normal, solo el valor
+select sum(c."value") / count(c.value) from ces c where c."createdAt" > '2025-09-30' and c."createdAt" < '2025-12-31'
+
+-- CES por Pais y la cantidad por Q(X)
 select c2."iso" country, sum(c.value)/count(c.value), count(*)
 from ces c
 left join memberships m 
@@ -11,6 +20,7 @@ where m."acquisitionChannel" like '%b2c%'
 	and c."createdAt" < '2025-12-31'
 group by c2.iso 
 
+-- CES por Pais y la cantidad Historica
 select c3."iso", sum(c.value)/count(c.value), count(*)
 from ces c
 left join memberships m 
@@ -29,6 +39,8 @@ left join countries c3
 --	and c."createdAt" < '2025-12-31'
 group by c3."iso"
 
+
+-- CES por Pais, anio, Q(X), Valor y Total de respuesta
 SELECT 
     c3."iso",
     EXTRACT(YEAR FROM c."createdAt") AS anio,
@@ -62,5 +74,3 @@ ORDER BY
     c3."iso", 
     anio DESC, 
     EXTRACT(QUARTER FROM c."createdAt") DESC;
-
-select sum(c."value") / count(c.value) from ces c where c."createdAt" > '2025-09-30' and c."createdAt" < '2025-12-31'

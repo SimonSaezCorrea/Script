@@ -4,7 +4,6 @@ SET vars.idc = '05f5b6d0-81ce-11ef-be1c-4f5fdfb2b8da';
 -- HISTORICAL --
 SELECT * FROM public."users-companies-access" as uca
 WHERE uca."companyId" = current_setting('vars.idc')::uuid
-	and uca."createdAt"<='2025-12-03T03:00:00.000Z'
 ORDER BY uca."userId" ASC;
 
 -- Total de la compañia --

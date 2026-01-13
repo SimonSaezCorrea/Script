@@ -86,7 +86,7 @@ def comparar_pyme_bice():
     """
     # Rutas de archivos
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(script_dir, 'data', 'Bice Pyme & OMG')
+    data_dir = os.path.join(script_dir, 'data', 'Pyme')
     
     # Buscar archivos dinámicamente
     archivo_carga = None
@@ -254,6 +254,30 @@ def comparar_pyme_bice():
     # 8. RUTs de OMG en Carga que aparecen en BICE Pyme (error)
     omg_en_bice_pyme = ruts_carga_omg & ruts_bice_pyme
     
+    # Detectar diferencias de cantidad
+    print("\n🔢 Detectando diferencias de cantidad por RUT...")
+    diferencias_cantidad_omg = []
+    for rut in omg_coincidencias:
+        cantidad_carga = len(df_carga_omg[df_carga_omg['RUT_NORM'] == rut])
+        cantidad_bice = len(df_bice_omg[df_bice_omg['RUT_NORM'] == rut])
+        if cantidad_carga != cantidad_bice:
+            diferencias_cantidad_omg.append({
+                'rut': rut,
+                'cantidad_carga': cantidad_carga,
+                'cantidad_bice': cantidad_bice
+            })
+    
+    diferencias_cantidad_pyme = []
+    for rut in pyme_coincidencias:
+        cantidad_carga = len(df_carga_pyme[df_carga_pyme['RUT_NORM'] == rut])
+        cantidad_bice = len(df_bice_pyme[df_bice_pyme['RUT_NORM'] == rut])
+        if cantidad_carga != cantidad_bice:
+            diferencias_cantidad_pyme.append({
+                'rut': rut,
+                'cantidad_carga': cantidad_carga,
+                'cantidad_bice': cantidad_bice
+            })
+    
     print("\n" + "="*80)
     print("📊 RESULTADOS DE LA COMPARACIÓN")
     print("="*80)
@@ -267,20 +291,28 @@ def comparar_pyme_bice():
     print(f"  OMG:")
     print(f"    1. RUTs OMG en Carga pero NO en BICE OMG: {len(omg_carga_no_en_bice)}")
     print(f"    2. RUTs en BICE OMG pero NO en Carga OMG: {len(omg_bice_no_en_carga)}")
+    print(f"    3. RUTs OMG con diferente cantidad de registros: {len(diferencias_cantidad_omg)}")
     print(f"  Pyme:")
-    print(f"    3. RUTs Pyme en Carga pero NO en BICE Pyme: {len(pyme_carga_no_en_bice)}")
-    print(f"    4. RUTs en BICE Pyme pero NO en Carga Pyme: {len(pyme_bice_no_en_carga)}")
+    print(f"    4. RUTs Pyme en Carga pero NO en BICE Pyme: {len(pyme_carga_no_en_bice)}")
+    print(f"    5. RUTs en BICE Pyme pero NO en Carga Pyme: {len(pyme_bice_no_en_carga)}")
+    print(f"    6. RUTs Pyme con diferente cantidad de registros: {len(diferencias_cantidad_pyme)}")
     print(f"  Errores de clasificación:")
-    print(f"    5. RUTs Pyme en Carga que aparecen en BICE OMG: {len(pyme_en_bice_omg)}")
-    print(f"    6. RUTs OMG en Carga que aparecen en BICE Pyme: {len(omg_en_bice_pyme)}")
+    print(f"    7. RUTs Pyme en Carga que aparecen en BICE OMG: {len(pyme_en_bice_omg)}")
+    print(f"    8. RUTs OMG en Carga que aparecen en BICE Pyme: {len(omg_en_bice_pyme)}")
     
     # Crear DataFrames de resultados
     resultados = []
     
-    # 1. Coincidencias OMG
+    # 1. Coincidencias OMG (con cantidad correcta)
+    ruts_omg_con_diferencia = set([d['rut'] for d in diferencias_cantidad_omg])
     for rut in omg_coincidencias:
+        if rut in ruts_omg_con_diferencia:
+            continue  # Se procesarán después
+        
         reg_carga = df_carga_omg[df_carga_omg['RUT_NORM'] == rut].iloc[0]
         reg_bice = df_bice_omg[df_bice_omg['RUT_NORM'] == rut].iloc[0]
+        cantidad_carga = len(df_carga_omg[df_carga_omg['RUT_NORM'] == rut])
+        cantidad_bice = len(df_bice_omg[df_bice_omg['RUT_NORM'] == rut])
         
         resultados.append({
             'RUT': rut,
@@ -291,13 +323,41 @@ def comparar_pyme_bice():
             'NOMBRE_BICE': reg_bice.get('Nombre', ''),
             'APELLIDO_BICE': reg_bice.get('Apellido', ''),
             'EMAIL_BICE': reg_bice.get('Email', ''),
+            'CANTIDAD_CARGA': cantidad_carga,
+            'CANTIDAD_BICE': cantidad_bice,
             'OBSERVACION': 'OK - RUT OMG presente en ambos archivos'
         })
     
-    # 2. Coincidencias Pyme
+    # 1b. Diferencias de cantidad OMG
+    for diff in diferencias_cantidad_omg:
+        rut = diff['rut']
+        reg_carga = df_carga_omg[df_carga_omg['RUT_NORM'] == rut].iloc[0]
+        reg_bice = df_bice_omg[df_bice_omg['RUT_NORM'] == rut].iloc[0]
+        
+        resultados.append({
+            'RUT': rut,
+            'ESTADO': 'DIFERENCIA_CANTIDAD_OMG',
+            'TIPO': 'OMG',
+            'EMPRESA_CARGA': reg_carga.get('NOMBRE_CONTRATANTE', ''),
+            'NOMBRE_CARGA': reg_carga.get('NOMBRE CARGA', ''),
+            'NOMBRE_BICE': reg_bice.get('Nombre', ''),
+            'APELLIDO_BICE': reg_bice.get('Apellido', ''),
+            'EMAIL_BICE': reg_bice.get('Email', ''),
+            'CANTIDAD_CARGA': diff['cantidad_carga'],
+            'CANTIDAD_BICE': diff['cantidad_bice'],
+            'OBSERVACION': f"DIFERENCIA OMG - Carga tiene {diff['cantidad_carga']} registros, BICE tiene {diff['cantidad_bice']} registros"
+        })
+    
+    # 2. Coincidencias Pyme (con cantidad correcta)
+    ruts_pyme_con_diferencia = set([d['rut'] for d in diferencias_cantidad_pyme])
     for rut in pyme_coincidencias:
+        if rut in ruts_pyme_con_diferencia:
+            continue  # Se procesarán después
+        
         reg_carga = df_carga_pyme[df_carga_pyme['RUT_NORM'] == rut].iloc[0]
         reg_bice = df_bice_pyme[df_bice_pyme['RUT_NORM'] == rut].iloc[0]
+        cantidad_carga = len(df_carga_pyme[df_carga_pyme['RUT_NORM'] == rut])
+        cantidad_bice = len(df_bice_pyme[df_bice_pyme['RUT_NORM'] == rut])
         
         resultados.append({
             'RUT': rut,
@@ -308,7 +368,29 @@ def comparar_pyme_bice():
             'NOMBRE_BICE': reg_bice.get('Nombre', ''),
             'APELLIDO_BICE': reg_bice.get('Apellido', ''),
             'EMAIL_BICE': reg_bice.get('Email', ''),
+            'CANTIDAD_CARGA': cantidad_carga,
+            'CANTIDAD_BICE': cantidad_bice,
             'OBSERVACION': 'OK - RUT Pyme presente en ambos archivos'
+        })
+    
+    # 2b. Diferencias de cantidad Pyme
+    for diff in diferencias_cantidad_pyme:
+        rut = diff['rut']
+        reg_carga = df_carga_pyme[df_carga_pyme['RUT_NORM'] == rut].iloc[0]
+        reg_bice = df_bice_pyme[df_bice_pyme['RUT_NORM'] == rut].iloc[0]
+        
+        resultados.append({
+            'RUT': rut,
+            'ESTADO': 'DIFERENCIA_CANTIDAD_PYME',
+            'TIPO': 'PYME',
+            'EMPRESA_CARGA': reg_carga.get('NOMBRE_CONTRATANTE', ''),
+            'NOMBRE_CARGA': reg_carga.get('NOMBRE CARGA', ''),
+            'NOMBRE_BICE': reg_bice.get('Nombre', ''),
+            'APELLIDO_BICE': reg_bice.get('Apellido', ''),
+            'EMAIL_BICE': reg_bice.get('Email', ''),
+            'CANTIDAD_CARGA': diff['cantidad_carga'],
+            'CANTIDAD_BICE': diff['cantidad_bice'],
+            'OBSERVACION': f"DIFERENCIA PYME - Carga tiene {diff['cantidad_carga']} registros, BICE tiene {diff['cantidad_bice']} registros"
         })
     
     # 3. OMG en Carga pero no en BICE
@@ -416,12 +498,14 @@ def comparar_pyme_bice():
     orden_estados = {
         'COINCIDENCIA_OMG': 1, 
         'COINCIDENCIA_PYME': 2, 
-        'CARGA_OMG_SIN_BICE': 3, 
-        'CARGA_PYME_SIN_BICE': 4,
-        'BICE_OMG_SIN_CARGA': 5, 
-        'BICE_PYME_SIN_CARGA': 6,
-        'ERROR_PYME_EN_OMG': 7, 
-        'ERROR_OMG_EN_PYME': 8
+        'DIFERENCIA_CANTIDAD_OMG': 3,
+        'DIFERENCIA_CANTIDAD_PYME': 4,
+        'CARGA_OMG_SIN_BICE': 5, 
+        'CARGA_PYME_SIN_BICE': 6,
+        'BICE_OMG_SIN_CARGA': 7, 
+        'BICE_PYME_SIN_CARGA': 8,
+        'ERROR_PYME_EN_OMG': 9, 
+        'ERROR_OMG_EN_PYME': 10
     }
     df_resultados['ORDEN'] = df_resultados['ESTADO'].map(orden_estados)
     df_resultados = df_resultados.sort_values(['ORDEN', 'RUT']).drop('ORDEN', axis=1)
@@ -459,6 +543,65 @@ def comparar_pyme_bice():
     if len(df_inconsistencias) > 0:
         for estado, cantidad in df_inconsistencias['ESTADO'].value_counts().items():
             print(f"      - {estado}: {cantidad}")
+    
+    # Generar CSV especial para registros en CARGA que NO están en BICE (hay que agregarlos)
+    df_carga_sin_bice_omg = df_inconsistencias[df_inconsistencias['ESTADO'] == 'CARGA_OMG_SIN_BICE'].copy()
+    df_carga_sin_bice_pyme = df_inconsistencias[df_inconsistencias['ESTADO'] == 'CARGA_PYME_SIN_BICE'].copy()
+    
+    from utils.file_handlers import guardar_csv_formato_especial
+    resultado_dir = os.path.join(script_dir, 'resultado')
+    
+    if len(df_carga_sin_bice_omg) > 0:
+        # Preparar DataFrame OMG con el formato requerido
+        df_csv_carga_omg = pd.DataFrame({
+            'Nombre': df_carga_sin_bice_omg['NOMBRE_CARGA'],
+            'Apellido': '',  # La carga no tiene apellidos separados
+            'Email': '',  # La carga no tiene email
+            'RUT': df_carga_sin_bice_omg['RUT']
+        })
+        archivo_csv_carga_omg = os.path.join(resultado_dir, f'carga_sin_bice_omg_{timestamp}.csv')
+        guardar_csv_formato_especial(df_csv_carga_omg, archivo_csv_carga_omg)
+        print(f"   📄 Carga OMG sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga_omg)}")
+    
+    if len(df_carga_sin_bice_pyme) > 0:
+        # Preparar DataFrame Pyme con el formato requerido
+        df_csv_carga_pyme = pd.DataFrame({
+            'Nombre': df_carga_sin_bice_pyme['NOMBRE_CARGA'],
+            'Apellido': '',  # La carga no tiene apellidos separados
+            'Email': '',  # La carga no tiene email
+            'RUT': df_carga_sin_bice_pyme['RUT']
+        })
+        archivo_csv_carga_pyme = os.path.join(resultado_dir, f'carga_sin_bice_pyme_{timestamp}.csv')
+        guardar_csv_formato_especial(df_csv_carga_pyme, archivo_csv_carga_pyme)
+        print(f"   📄 Carga Pyme sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga_pyme)}")
+    
+    # Generar CSV especial para registros en BICE que NO están en Carga
+    df_bice_sin_carga_omg = df_inconsistencias[df_inconsistencias['ESTADO'] == 'BICE_OMG_SIN_CARGA'].copy()
+    df_bice_sin_carga_pyme = df_inconsistencias[df_inconsistencias['ESTADO'] == 'BICE_PYME_SIN_CARGA'].copy()
+    
+    if len(df_bice_sin_carga_omg) > 0:
+        # Preparar DataFrame OMG con el formato requerido
+        df_csv_omg = pd.DataFrame({
+            'Nombre': df_bice_sin_carga_omg['NOMBRE_BICE'],
+            'Apellido': df_bice_sin_carga_omg['APELLIDO_BICE'],
+            'Email': df_bice_sin_carga_omg['EMAIL_BICE'],
+            'RUT': df_bice_sin_carga_omg['RUT']
+        })
+        archivo_csv_omg = os.path.join(resultado_dir, f'bice_sin_carga_omg_{timestamp}.csv')
+        guardar_csv_formato_especial(df_csv_omg, archivo_csv_omg, solo_rut=True)
+        print(f"   📄 BICE OMG sin Carga (formato carga): {os.path.basename(archivo_csv_omg)}")
+    
+    if len(df_bice_sin_carga_pyme) > 0:
+        # Preparar DataFrame Pyme con el formato requerido
+        df_csv_pyme = pd.DataFrame({
+            'Nombre': df_bice_sin_carga_pyme['NOMBRE_BICE'],
+            'Apellido': df_bice_sin_carga_pyme['APELLIDO_BICE'],
+            'Email': df_bice_sin_carga_pyme['EMAIL_BICE'],
+            'RUT': df_bice_sin_carga_pyme['RUT']
+        })
+        archivo_csv_pyme = os.path.join(resultado_dir, f'bice_sin_carga_pyme_{timestamp}.csv')
+        guardar_csv_formato_especial(df_csv_pyme, archivo_csv_pyme, solo_rut=True)
+        print(f"   📄 BICE Pyme sin Carga (formato carga): {os.path.basename(archivo_csv_pyme)}")
     
     # Mostrar muestras
     if len(df_inconsistencias) > 0:
