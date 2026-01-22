@@ -1,11 +1,16 @@
 select * from users where
 --email = 'simon@somospawer.com'
-rut = '210843841'
+rut = '19.605.166-k'
+--id='a152007c-86ee-41e8-8dc3-d14e69312063'
+
+select * from "users-companies-access" uca 
+where uca."userId" = '619e8716ae09f40011874667
+'
 
 WITH variables AS (
     SELECT 
         '88d253a4-12cd-473f-a555-418a28d3b4a9'::uuid AS v_user_uuid, 
-        '66298b41c316d6003d30b478'::varchar AS v_mongo_id
+        '6888ed9a60ccef0034788ee2'::varchar AS v_mongo_id
 ),
 summary AS (
     -- 1. TABLAS VINCULADAS POR UUID (Claves foráneas explícitas en tu SQL)
