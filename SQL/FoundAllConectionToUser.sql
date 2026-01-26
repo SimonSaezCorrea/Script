@@ -1,6 +1,7 @@
 select * from users where
 --email = 'simon@somospawer.com'
-rut = '210843841'
+rut = '19.605.166-k'
+--id='a152007c-86ee-41e8-8dc3-d14e69312063'
 
 select * from memberships where "userId" = '618e80a860c8813c97909ded'
 
