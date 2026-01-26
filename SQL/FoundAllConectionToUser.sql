@@ -2,10 +2,12 @@ select * from users where
 --email = 'simon@somospawer.com'
 rut = '210843841'
 
+select * from memberships where "userId" = '618e80a860c8813c97909ded'
+
 WITH variables AS (
     SELECT 
-        '88d253a4-12cd-473f-a555-418a28d3b4a9'::uuid AS v_user_uuid, 
-        '66298b41c316d6003d30b478'::varchar AS v_mongo_id
+        '1797ae2e-4469-47a7-be32-528de8093517'::uuid AS v_user_uuid, 
+        '68b9ff8d05ec7100347a4eee'::varchar AS v_mongo_id
 ),
 summary AS (
     -- 1. TABLAS VINCULADAS POR UUID (Claves foráneas explícitas en tu SQL)
