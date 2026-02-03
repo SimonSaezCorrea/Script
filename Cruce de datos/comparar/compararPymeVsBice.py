@@ -1,12 +1,12 @@
 """
-Script para comparar datos entre archivo de carga Pyme y archivos BICE (OMG + Pyme).
+Script para comparar datos entre archivo de carga PAWER y archivos BICE (OMG + Pyme).
 
 Compara RUTs y reporta inconsistencias, separando entre empresas OMG y Pyme.
 
 Archivos:
-- 20260105_PAWER Asistencia de Mascotas_FULL_Pawer_asist - Pyme.xlsx (CARGA)
-- BICE OMG Convenio_users_12_01_2026.xlsx (BICE OMG)
-- BICE PYME_users_12_01_2026.xlsx (BICE PYME)
+- 20260127_PAWER Asistencia de Mascotas_FULL_Pawer_asist.xlsx (CARGA)
+- BICE OMG Convenio_users_28_01_2026.xlsx (BICE OMG)
+- BICE PYME_users_28_01_2026.xlsx (BICE PYME)
 
 Empresas OMG:
 - DDB CHILE SPA
@@ -98,7 +98,7 @@ def comparar_pyme_bice():
         if filename.startswith('~$'):
             continue
             
-        if 'PAWER Asistencia de Mascotas' in filename and 'Pyme' in filename:
+        if 'PAWER Asistencia de Mascotas' in filename and filename.endswith('.xlsx'):
             archivo_carga = os.path.join(data_dir, filename)
         elif 'BICE OMG Convenio' in filename:
             archivo_bice_omg = os.path.join(data_dir, filename)
@@ -403,6 +403,9 @@ def comparar_pyme_bice():
             'TIPO': 'OMG',
             'EMPRESA_CARGA': reg_carga.get('NOMBRE_CONTRATANTE', ''),
             'NOMBRE_CARGA': reg_carga.get('NOMBRE CARGA', ''),
+            'PATERNO': reg_carga.get('PATERNO', ''),
+            'MATERNO': reg_carga.get('MATERNO', ''),
+            'CORREO': reg_carga.get('CORREO', ''),
             'NOMBRE_BICE': '',
             'APELLIDO_BICE': '',
             'EMAIL_BICE': '',
@@ -435,10 +438,13 @@ def comparar_pyme_bice():
             'TIPO': 'PYME',
             'EMPRESA_CARGA': reg_carga.get('NOMBRE_CONTRATANTE', ''),
             'NOMBRE_CARGA': reg_carga.get('NOMBRE CARGA', ''),
+            'PATERNO': reg_carga.get('PATERNO', ''),
+            'MATERNO': reg_carga.get('MATERNO', ''),
+            'CORREO': reg_carga.get('CORREO', ''),
             'NOMBRE_BICE': '',
             'APELLIDO_BICE': '',
             'EMAIL_BICE': '',
-            'OBSERVACION': 'FALTA - RUT Pyme en Carga pero NO en BICE Pyme'
+            'OBSERVACION': 'FALTA - RUT PYME en Carga pero NO en BICE PYME'
         })
     
     # 6. Pyme en BICE pero no en Carga
@@ -554,26 +560,52 @@ def comparar_pyme_bice():
     if len(df_carga_sin_bice_omg) > 0:
         # Preparar DataFrame OMG con el formato requerido
         df_csv_carga_omg = pd.DataFrame({
-            'Nombre': df_carga_sin_bice_omg['NOMBRE_CARGA'],
-            'Apellido': '',  # La carga no tiene apellidos separados
-            'Email': '',  # La carga no tiene email
+            'Nombre': df_carga_sin_bice_omg['NOMBRE_CARGA'].fillna('').astype(str).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
+            'Apellido': (df_carga_sin_bice_omg['PATERNO'].fillna('').astype(str) + ' ' + df_carga_sin_bice_omg['MATERNO'].fillna('').astype(str)).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
+            'Email': df_carga_sin_bice_omg['CORREO'].fillna('').astype(str).str.lower().str.strip(),
             'RUT': df_carga_sin_bice_omg['RUT']
         })
-        archivo_csv_carga_omg = os.path.join(resultado_dir, f'carga_sin_bice_omg_{timestamp}.csv')
-        guardar_csv_formato_especial(df_csv_carga_omg, archivo_csv_carga_omg)
-        print(f"   📄 Carga OMG sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga_omg)}")
+        
+        # Separar registros sin email
+        df_omg_sin_email = df_csv_carga_omg[df_csv_carga_omg['Email'].str.strip() == ''].copy()
+        df_omg_con_email = df_csv_carga_omg[df_csv_carga_omg['Email'].str.strip() != ''].copy()
+        
+        # Guardar archivo principal (solo con email)
+        if len(df_omg_con_email) > 0:
+            archivo_csv_carga_omg = os.path.join(resultado_dir, f'carga_sin_bice_omg_{timestamp}.csv')
+            guardar_csv_formato_especial(df_omg_con_email, archivo_csv_carga_omg)
+            print(f"   📄 Carga OMG sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga_omg)} ({len(df_omg_con_email)} registros)")
+        
+        # Guardar archivo de error (sin email)
+        if len(df_omg_sin_email) > 0:
+            archivo_error_omg = os.path.join(resultado_dir, f'error_carga_omg_{timestamp}.csv')
+            guardar_csv_formato_especial(df_omg_sin_email, archivo_error_omg)
+            print(f"   ⚠️  Error OMG sin email: {os.path.basename(archivo_error_omg)} ({len(df_omg_sin_email)} registros)")
     
     if len(df_carga_sin_bice_pyme) > 0:
         # Preparar DataFrame Pyme con el formato requerido
         df_csv_carga_pyme = pd.DataFrame({
-            'Nombre': df_carga_sin_bice_pyme['NOMBRE_CARGA'],
-            'Apellido': '',  # La carga no tiene apellidos separados
-            'Email': '',  # La carga no tiene email
+            'Nombre': df_carga_sin_bice_pyme['NOMBRE_CARGA'].fillna('').astype(str).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
+            'Apellido': (df_carga_sin_bice_pyme['PATERNO'].fillna('').astype(str) + ' ' + df_carga_sin_bice_pyme['MATERNO'].fillna('').astype(str)).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
+            'Email': df_carga_sin_bice_pyme['CORREO'].fillna('').astype(str).str.lower().str.strip(),
             'RUT': df_carga_sin_bice_pyme['RUT']
         })
-        archivo_csv_carga_pyme = os.path.join(resultado_dir, f'carga_sin_bice_pyme_{timestamp}.csv')
-        guardar_csv_formato_especial(df_csv_carga_pyme, archivo_csv_carga_pyme)
-        print(f"   📄 Carga Pyme sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga_pyme)}")
+        
+        # Separar registros sin email
+        df_pyme_sin_email = df_csv_carga_pyme[df_csv_carga_pyme['Email'].str.strip() == ''].copy()
+        df_pyme_con_email = df_csv_carga_pyme[df_csv_carga_pyme['Email'].str.strip() != ''].copy()
+        
+        # Guardar archivo principal (solo con email)
+        if len(df_pyme_con_email) > 0:
+            archivo_csv_carga_pyme = os.path.join(resultado_dir, f'carga_sin_bice_pyme_{timestamp}.csv')
+            guardar_csv_formato_especial(df_pyme_con_email, archivo_csv_carga_pyme)
+            print(f"   📄 Carga Pyme sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga_pyme)} ({len(df_pyme_con_email)} registros)")
+        
+        # Guardar archivo de error (sin email)
+        if len(df_pyme_sin_email) > 0:
+            archivo_error_pyme = os.path.join(resultado_dir, f'error_carga_pyme_{timestamp}.csv')
+            guardar_csv_formato_especial(df_pyme_sin_email, archivo_error_pyme)
+            print(f"   ⚠️  Error PYME sin email: {os.path.basename(archivo_error_pyme)} ({len(df_pyme_sin_email)} registros)")
     
     # Generar CSV especial para registros en BICE que NO están en Carga
     df_bice_sin_carga_omg = df_inconsistencias[df_inconsistencias['ESTADO'] == 'BICE_OMG_SIN_CARGA'].copy()

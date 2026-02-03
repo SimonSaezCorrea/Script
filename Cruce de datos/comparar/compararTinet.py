@@ -82,16 +82,23 @@ def comparar_tinet():
         return
 
     print(f"\n📈 Registros totales:")
-    print(f"  - Carga: {len(df_carga)}")
+    print(f"  - Carga (total): {len(df_carga)}")
     print(f"  - BICE (total): {len(df_bice)}")
 
+    # Filtrar solo registros activos en CARGA si existe columna 'Activo'
+    total_carga = len(df_carga)
+    if 'Activo' in df_carga.columns:
+        df_carga = filtrar_activos(df_carga, 'Activo')
+        print(f"  - Carga (activos): {len(df_carga)} ({total_carga - len(df_carga)} inactivos filtrados)")
+    
     # Filtrar solo registros activos en BICE si existe columna 'Activo' o 'Estado'
+    total_bice = len(df_bice)
     if 'Activo' in df_bice.columns:
         df_bice = filtrar_activos(df_bice, 'Activo')
-        print(f"  - BICE (activos): {len(df_bice)}")
+        print(f"  - BICE (activos): {len(df_bice)} ({total_bice - len(df_bice)} inactivos filtrados)")
     elif 'Estado' in df_bice.columns:
         df_bice = filtrar_activos(df_bice, 'Estado')
-        print(f"  - BICE (activos): {len(df_bice)}")
+        print(f"  - BICE (activos): {len(df_bice)} ({total_bice - len(df_bice)} inactivos filtrados)")
 
     # Procesar RUTs
     print("\n🔧 Procesando RUTs...")
