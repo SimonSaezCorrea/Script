@@ -112,7 +112,7 @@ def crear_resultados_comparacion(rut, estado, tipo, reg_carga, reg_bice, columna
     return resultado
 
 
-def separar_y_guardar_resultados(df_resultados, script_dir, timestamp, orden_estados):
+def separar_y_guardar_resultados(df_resultados, script_dir, timestamp, orden_estados, prefijo=''):
     """
     Separa resultados en coincidencias e inconsistencias y los guarda.
     
@@ -121,6 +121,7 @@ def separar_y_guardar_resultados(df_resultados, script_dir, timestamp, orden_est
         script_dir: Directorio del script
         timestamp: Timestamp para los archivos
         orden_estados: Diccionario con orden de estados para sorting
+        prefijo: Prefijo opcional para los nombres de archivo (ej: 'cencosud_', 'mercer_')
     
     Returns:
         Tuple (df_coincidencias, df_inconsistencias, archivos guardados)
@@ -137,10 +138,10 @@ def separar_y_guardar_resultados(df_resultados, script_dir, timestamp, orden_est
     resultado_dir = os.path.join(script_dir, 'resultado')
     os.makedirs(resultado_dir, exist_ok=True)
     
-    archivo_coincidencias = os.path.join(resultado_dir, f'comparacion_coincidencias_{timestamp}.xlsx')
+    archivo_coincidencias = os.path.join(resultado_dir, f'{prefijo}comparacion_coincidencias_{timestamp}.xlsx')
     df_coincidencias.to_excel(archivo_coincidencias, index=False)
     
-    archivo_inconsistencias = os.path.join(resultado_dir, f'comparacion_inconsistencias_{timestamp}.xlsx')
+    archivo_inconsistencias = os.path.join(resultado_dir, f'{prefijo}comparacion_inconsistencias_{timestamp}.xlsx')
     df_inconsistencias.to_excel(archivo_inconsistencias, index=False)
     
     return df_coincidencias, df_inconsistencias, (archivo_coincidencias, archivo_inconsistencias)

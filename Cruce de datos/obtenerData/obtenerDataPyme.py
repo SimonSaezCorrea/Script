@@ -114,7 +114,6 @@ def procesar_datos_pawer():
             'email': ['CORREO', 'Email', 'Correo electrónico'],
             'empresa': ['NOMBRE_CONTRATANTE', 'NOMBRE CONTRATANTE']
         }
-        
         # Encontrar nombres de columnas reales con coincidencia exacta para evitar confusiones
         columnas_reales = {}
         for key, posibles_nombres in columnas_esperadas.items():
