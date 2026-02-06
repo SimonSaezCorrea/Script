@@ -1,7 +1,102 @@
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import DictionaryObject, ArrayObject, NameObject, NumberObject, TextStringObject, BooleanObject
+import os
+from pathlib import Path
 
-def crear_plantilla_contrato(input_path, output_path):
+def seleccionar_archivo_pdf():
+    """
+    Interfaz de consola para navegar y seleccionar un archivo PDF.
+    Retorna la ruta del archivo seleccionado o None si se cancela.
+    """
+    ruta_actual = Path.cwd()
+    
+    while True:
+        # Limpiar pantalla (compatible con Windows y Unix)
+        os.system('cls' if os.name == 'nt' else 'clear')
+        
+        print("=" * 60)
+        print("SELECTOR DE ARCHIVOS PDF")
+        print("=" * 60)
+        print(f"\n📁 Ubicación actual: {ruta_actual}\n")
+        
+        # Listar contenido del directorio actual
+        try:
+            items = list(ruta_actual.iterdir())
+            carpetas = sorted([item for item in items if item.is_dir()])
+            archivos_pdf = sorted([item for item in items if item.is_file() and item.suffix.lower() == '.pdf'])
+            
+            # Mostrar opciones
+            opciones = []
+            tiene_parent = ruta_actual.parent != ruta_actual
+            
+            # Opción para subir un nivel (NO se agrega al array de opciones)
+            if tiene_parent:
+                print("0. ⬆️  [Subir un nivel]")
+            
+            # Listar carpetas
+            idx = 1
+            for carpeta in carpetas:
+                print(f"{idx}. 📁 {carpeta.name}/")
+                opciones.append(("dir", carpeta))
+                idx += 1
+            
+            # Listar archivos PDF
+            if archivos_pdf:
+                print("\n--- Archivos PDF ---")
+                for archivo in archivos_pdf:
+                    print(f"{idx}. 📄 {archivo.name}")
+                    opciones.append(("file", archivo))
+                    idx += 1
+            else:
+                print("\n⚠️  No hay archivos PDF en este directorio")
+            
+            # Opciones adicionales
+            print(f"\n{idx}. ❌ Cancelar")
+            opcion_cancelar = idx
+            
+            # Solicitar selección
+            print("\n" + "=" * 60)
+            try:
+                seleccion = int(input("Selecciona una opción: "))
+                
+                if seleccion == 0 and tiene_parent:
+                    ruta_actual = ruta_actual.parent
+                elif seleccion == opcion_cancelar:
+                    return None
+                elif 1 <= seleccion < opcion_cancelar:
+                    tipo, valor = opciones[seleccion - 1]
+                    
+                    if tipo == "dir":
+                        ruta_actual = valor
+                    elif tipo == "file":
+                        return str(valor)
+                else:
+                    input("\n❌ Opción inválida. Presiona Enter para continuar...")
+                    
+            except ValueError:
+                input("\n❌ Por favor ingresa un número válido. Presiona Enter para continuar...")
+            except KeyboardInterrupt:
+                return None
+                
+        except PermissionError:
+            input(f"\n❌ Sin permisos para acceder a {ruta_actual}. Presiona Enter para volver...")
+            ruta_actual = ruta_actual.parent
+
+def generar_nombre_salida(archivo_entrada):
+    """
+    Genera el nombre del archivo de salida removiendo '_Template' del nombre de entrada.
+    """
+    ruta = Path(archivo_entrada)
+    nombre_sin_extension = ruta.stem
+    
+    # Remover '_Template' si existe
+    if nombre_sin_extension.endswith('_Template'):
+        nombre_sin_extension = nombre_sin_extension[:-9]  # Eliminar los últimos 9 caracteres ('_Template')
+    
+    # Retornar con la misma extensión
+    return str(ruta.parent / f"{nombre_sin_extension}{ruta.suffix}")
+
+def crear_plantilla_contrato(input_path, output_path, isBTC=False):
     reader = PdfReader(input_path)
     writer = PdfWriter()
 
@@ -14,8 +109,7 @@ def crear_plantilla_contrato(input_path, output_path):
     # Coordenadas: (0,0) es abajo-izquierda. A4 aprox es 595 x 842 puntos.
     
     # Ancho y alto estándar de las cajas de texto
-    w_box = 300
-    h_box = 10  # Altura de la caja
+    h_box = 12  # Altura de la caja
     font_size = 9  # Tamaño de fuente
 
     # Lista de campos requeridos por tu TypeScript
@@ -23,21 +117,27 @@ def crear_plantilla_contrato(input_path, output_path):
     # Nota: Los valores de Y son estimados, tendrás que ajustarlos probando.
     campos = [
         # --- ANTECEDENTE DEL CONTRATANTE ---
-        {"id": "fullname",    "y": 632.5, "x": 110}, # Nombre
-        {"id": "identifier",  "y": 620.5, "x": 92}, # RUT
-        {"id": "fulladdress", "y": 608, "x": 115}, # Dirección
-        {"id": "phone",       "y": 596, "x": 113}, # Teléfono
-        {"id": "email",       "y": 583, "x": 151}, # Correo
+        {"id": "fullname",      "y": 631.5,     "x": 110,   "w_box": 300}, # Nombre
+        {"id": "identifier",    "y": 619.5,     "x": 92,    "w_box": 300}, # RUT
+        {"id": "fulladdress",   "y": 607.5,     "x": 115,   "w_box": 300}, # Dirección
+        {"id": "phone",         "y": 595,     "x": 113,   "w_box": 300}, # Teléfono ! 594.95 -> 595
+        {"id": "email",         "y": 582.85,     "x": 151,   "w_box": 300}, # Correo ! 582.85
         
         # --- ANTECEDENTE DE LA MASCOTA ---
-        {"id": "petname",     "y": 549, "x": 110}, # Nombre Mascota
-        {"id": "specie",      "y": 537, "x": 108}, # Especie
-        {"id": "sex",         "y": 525, "x": 97}, # Sexo
-        {"id": "breed",       "y": 512, "x": 97}, # Raza
-        {"id": "age",         "y": 500, "x": 190}, # Edad
+        {"id": "petname",       "y": 548.7,     "x": 110,   "w_box": 300}, # Nombre Mascota
+        {"id": "specie",        "y": 536.1,     "x": 108,   "w_box": 300}, # Especie !
+        {"id": "sex",           "y": 523.7,     "x": 97,    "w_box": 300}, # Sexo !
+        {"id": "breed",         "y": 511.8,     "x": 97,    "w_box": 300}, # Raza
+        {"id": "age",           "y": 499.9,     "x": 190,   "w_box": 300}, # Edad
         
         # --- VIGENCIA ---
-        {"id": "startDate",   "y": 468, "x": 160}, # Vigencia a contar de
+        {"id": "startDate",     "y": 467.5,     "x": 160}, # Vigencia a contar de
+    ]
+
+    campos_BTC = [
+        {"id": "price",         "y": 376,       "x": 219,   "w_box": 100}, # Banco
+        {"id": "iva",           "y": 376,       "x": 322.5, "w_box": 50}, # Tipo de Cuenta
+        {"id": "totalPrice",    "y": 376,       "x": 377,   "w_box": 160}, # Número de Cuenta
     ]
 
     # Crear el array de campos para el formulario
@@ -47,7 +147,7 @@ def crear_plantilla_contrato(input_path, output_path):
     for campo in campos:
         y_pos = campo["y"]
         x_pos = campo.get("x", 110)  # Default x si no está especificado
-        
+        w_box = campo.get("w_box", 300)  # Default width si no está especificado
         # Crear el campo de texto
         field = DictionaryObject()
         field.update({
@@ -57,7 +157,7 @@ def crear_plantilla_contrato(input_path, output_path):
             NameObject("/DV"): TextStringObject(""),  # Default Value
             NameObject("/DA"): TextStringObject(f"/Helv {font_size} Tf 0 0 0 rg"),  # Default Appearance (RGB negro)
             NameObject("/Ff"): NumberObject(0),  # Field flags
-            NameObject("/Q"): NumberObject(0),  # Alineación (0=izquierda)
+            NameObject("/Q"): NumberObject(0),  # Alineación (1=centro)
         })
         
         # Crear el widget annotation (la representación visual del campo)
@@ -93,6 +193,58 @@ def crear_plantilla_contrato(input_path, output_path):
         # Agregar el campo al array de campos del formulario
         fields.append(field_ref)
 
+    # Si es BTC, agregar campos adicionales
+    if isBTC:
+        for campo in campos_BTC:
+            y_pos = campo["y"]
+            x_pos = campo.get("x", 110)
+            w_box = campo.get("w_box", 300)
+            
+            # Crear el campo de texto
+            field = DictionaryObject()
+            field.update({
+                NameObject("/FT"): NameObject("/Tx"),
+                NameObject("/T"): TextStringObject(campo["id"]),
+                NameObject("/V"): TextStringObject(""),
+                NameObject("/DV"): TextStringObject(""),
+                NameObject("/DA"): TextStringObject(f"/Helv {font_size} Tf 0 0 0 rg"),
+                NameObject("/Ff"): NumberObject(0),
+                NameObject("/Q"): NumberObject(1),
+            })
+            
+            # Crear el widget annotation
+            widget = DictionaryObject()
+            widget.update({
+                NameObject("/Type"): NameObject("/Annot"),
+                NameObject("/Subtype"): NameObject("/Widget"),
+                NameObject("/Rect"): ArrayObject([
+                    NumberObject(x_pos), 
+                    NumberObject(y_pos), 
+                    NumberObject(x_pos + w_box), 
+                    NumberObject(y_pos + h_box)
+                ]),
+                NameObject("/F"): NumberObject(4),
+                NameObject("/P"): writer.pages[0].indirect_reference,
+                NameObject("/MK"): DictionaryObject({
+                    NameObject("/BG"): ArrayObject([NumberObject(1), NumberObject(1), NumberObject(1)]),
+                    NameObject("/BC"): ArrayObject([NumberObject(0), NumberObject(0), NumberObject(0)]),
+                }),
+            })
+            
+            # Combinar el campo con su widget
+            field.update(widget)
+            
+            # Agregar el campo al writer y obtener su referencia
+            field_ref = writer._add_object(field)
+            
+            # Agregar el widget a la página
+            if "/Annots" not in writer.pages[0]:
+                writer.pages[0][NameObject("/Annots")] = ArrayObject()
+            writer.pages[0]["/Annots"].append(field_ref)
+            
+            # Agregar el campo al array de campos del formulario
+            fields.append(field_ref)
+
     # Crear el AcroForm (catálogo de formularios)
     acroform = DictionaryObject()
     acroform.update({
@@ -114,19 +266,48 @@ def crear_plantilla_contrato(input_path, output_path):
     with open(output_path, "wb") as f:
         writer.write(f)
     
+    total_campos = len(campos) + (len(campos_BTC) if isBTC else 0)
     print(f"✅ Plantilla generada: {output_path}")
-    print(f"   - {len(campos)} campos de formulario creados")
-    print(f"   - Campos: {', '.join([c['id'] for c in campos])}")
+    print(f"   - {total_campos} campos de formulario creados")
+    if isBTC:
+        print(f"   - Campos estándar: {', '.join([c['id'] for c in campos])}")
+        print(f"   - Campos BTC: {', '.join([c['id'] for c in campos_BTC])}")
+    else:
+        print(f"   - Campos: {', '.join([c['id'] for c in campos])}")
 
 # --- Ejecutar ---
 if __name__ == "__main__":
-    # Asegúrate de que el nombre del archivo coincida con el que tienes en la carpeta
-    archivo_entrada = "Contrato_Colaboradores_Roche_2026_Template.pdf" 
-    archivo_salida = "Contrato_Colaboradores_Roche_2026.pdf"
+    print("🐾 Generador de Plantillas de Contrato PDF\n")
     
+    # Seleccionar archivo de entrada mediante interfaz
+    archivo_entrada = seleccionar_archivo_pdf()
+    
+    if archivo_entrada is None:
+        print("\n❌ Operación cancelada por el usuario.")
+        exit(0)
+    
+    # Generar nombre de salida automáticamente
+    archivo_salida = generar_nombre_salida(archivo_entrada)
+    
+    print("\n" + "=" * 60)
+    print(f"📄 Archivo de entrada: {archivo_entrada}")
+    print(f"📄 Archivo de salida:  {archivo_salida}")
+    print("=" * 60 + "\n")
+    
+    # Preguntar si es BTC
+    respuesta_btc = input("¿Es un contrato BTC? (true/false): ").strip().lower()
+    isBTC = respuesta_btc in ['true', 't', 'verdadero', 'si', 'sí', 's', 'yes', 'y']
+    
+    if isBTC:
+        print("✓ Se agregarán campos adicionales de BTC (price, iva, totalPrice)")
+    else:
+        print("✓ Se usarán solo los campos estándar")
     try:
-        crear_plantilla_contrato(archivo_entrada, archivo_salida)
+        crear_plantilla_contrato(archivo_entrada, archivo_salida, isBTC)
     except FileNotFoundError:
         print(f"❌ No encontré el archivo: {archivo_entrada}")
     except Exception as e:
         print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+
