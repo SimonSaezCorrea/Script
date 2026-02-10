@@ -15,7 +15,6 @@ with summary as (
 	                WHEN c."membershipsPurchased" > 0 THEN c."membershipsPurchased"
 	                ELSE COALESCE(activos.cantidad, 0)
 	            END
-	        
 	        -- CASO 2: Cualquier otro tipo (Lógica original: el mayor entre compradas y usadas)
 	        ELSE
 	            CASE 
@@ -23,9 +22,7 @@ with summary as (
 	                ELSE c."membershipsPurchased"
 	            END
 	    END as "resultado_comparacion"
-	
 	FROM public."companies" as c
-	
 	-- Subconsulta 1: Cantidad Usadas (Membresías status 2)
 	LEFT JOIN (
 	    SELECT 
@@ -37,7 +34,6 @@ with summary as (
 	    WHERE ms.status = 2
 	    GROUP BY uca."companyId"
 	) as usadas ON c."id" = usadas."companyId"
-	
 	-- Subconsulta 2: Cantidad Activos (Visible = true y fecha tope)
 	LEFT JOIN (
 	    SELECT 
@@ -48,7 +44,6 @@ with summary as (
 	      AND uca."createdAt" <= '2025-12-03T03:00:00.000Z' -- Fecha manual
 	    GROUP BY uca."companyId"
 	) as activos ON c."id" = activos."companyId"
-	
 	ORDER BY "resultado_comparacion" DESC
 )
 SELECT 

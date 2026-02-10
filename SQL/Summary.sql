@@ -5,25 +5,20 @@ SELECT
 	c.id as "companyId", 
 	c."name" as "companyName",
 	c."type" as "companyType",
-	
 	-- Métricas de Usuarios
 	COALESCE(stats.history, 0) as "totalUsersAllTime", -- La cantidad de usuarios de toda la vida
 	COALESCE(stats.active, 0) as "activeUsers",       -- La cantidad de usuarios activos
-	
 	-- Métricas de Membresías
 	c."membershipsPurchased",
 	COALESCE(used.quantity, 0) as "activeMemberships", -- La cantidad de usuarios con membresias (status 2 y visibles)
 	COALESCE(used.historical_quantity, 0) as "totalMembershipsHistory", -- HISTÓRICO: Sin condiciones de status ni visible
-	
 	-- Desglose por Plan (Totales)
 	COALESCE(stats.premium_total, 0) as "totalPremiumUsers", 
 	COALESCE(stats.elite_total, 0) as "totalEliteUsers",
-	
 	-- Desglose de Nuevos Usuarios (En el periodo seleccionado)
 	COALESCE(stats.new_users, 0) as "newUsersTotal",
 	COALESCE(stats.new_premium, 0) as "newPremiumUsers",
 	COALESCE(stats.new_elite, 0) as "newEliteUsers",
-	
 	-- Métrica de Negocio (Resultado Final)
 	CASE 
 		WHEN c."type" = 'assistance' THEN
@@ -34,9 +29,7 @@ SELECT
 		ELSE
 			GREATEST(COALESCE(used.quantity, 0), c."membershipsPurchased")
 	END as "protectedPetsCount"
-
 FROM public."companies" as c
-
 -- 1. CONSULTA DE LOS DATOS DE LOS users-companies-access NECESARIOS
 LEFT JOIN (
 	SELECT 
@@ -62,7 +55,6 @@ LEFT JOIN (
 	WHERE ("extraInfo" IS NULL OR "extraInfo" NOT ILIKE '%test%') -- Filtro Global Anti-Test
 	GROUP BY "companyId"
 ) as stats ON c."id" = stats."companyId"
-
 -- 2. CONSULTA MEMBRESÍAS USADAS POR LOS USUARIOS
 LEFT JOIN (
 	SELECT 
