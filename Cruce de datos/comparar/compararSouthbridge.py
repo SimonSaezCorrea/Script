@@ -24,6 +24,12 @@ from utils.comparadores import (
 )
 from utils.normalizers import combinar_rut_dv, normalizar_nombre
 
+# Constants for column names
+NOMBRE_PROPIETARIO = 'Nombre propietario'
+APELLIDO_PATERNO_PROPIETARIO = 'Apellido paterno propietario'
+APELLIDO_MATERNO_PROPIETARIO = 'Apellido materno propietario'
+EMAIL_PROPIETARIO = 'Email propietario'
+
 
 def normalizar_ruts_dataframe_southbridge(df, col_rut, col_dv=None):
     """
@@ -98,7 +104,7 @@ def comparar_southbridge():
     # Leer Altas Cencosud
     try:
         df_carga_cencosud = pd.read_excel(archivo_carga_cencosud)
-        print(f"  ✓ Archivo Altas Cencosud leído correctamente")
+        print("  ✓ Archivo Altas Cencosud leído correctamente")
     except Exception as e:
         print(f"  ❌ Error al leer archivo de altas Cencosud: {e}")
         return
@@ -106,7 +112,7 @@ def comparar_southbridge():
     # Leer Altas Mercer
     try:
         df_carga_mercer = pd.read_excel(archivo_carga_mercer)
-        print(f"  ✓ Archivo Altas Mercer leído correctamente")
+        print("  ✓ Archivo Altas Mercer leído correctamente")
     except Exception as e:
         print(f"  ❌ Error al leer archivo de altas Mercer: {e}")
         return
@@ -114,12 +120,12 @@ def comparar_southbridge():
     # Leer BICE
     try:
         df_bice = pd.read_excel(archivo_bice)
-        print(f"  ✓ Archivo BICE leído correctamente")
+        print("  ✓ Archivo BICE leído correctamente")
     except Exception as e:
         print(f"  ❌ Error al leer archivo BICE: {e}")
         return
     
-    print(f"\n📈 Registros totales:")
+    print("\n📈 Registros totales:")
     print(f"  - Altas Cencosud (total): {len(df_carga_cencosud)}")
     print(f"  - Altas Mercer (total): {len(df_carga_mercer)}")
     print(f"  - BICE (total): {len(df_bice)}")
@@ -163,7 +169,7 @@ def comparar_southbridge():
     # Combinar RUTs de ambas cargas
     ruts_carga_total = ruts_cencosud | ruts_mercer
     
-    print(f"\n🔢 RUTs únicos:")
+    print("\n🔢 RUTs únicos:")
     print(f"  - Altas Cencosud: {len(ruts_cencosud)}")
     print(f"  - Altas Mercer: {len(ruts_mercer)}")
     print(f"  - Altas Total (Cencosud + Mercer): {len(ruts_carga_total)}")
@@ -187,12 +193,12 @@ def comparar_southbridge():
     print("📊 RESULTADOS DE LA COMPARACIÓN")
     print("="*80)
     
-    print(f"\n✅ COINCIDENCIAS:")
+    print("\n✅ COINCIDENCIAS:")
     print(f"  - Cencosud: {len(coincidencias_cencosud)}")
     print(f"  - Mercer: {len(coincidencias_mercer)}")
     print(f"  - Total: {len(coincidencias_cencosud | coincidencias_mercer)}")
     
-    print(f"\n⚠️  INCONSISTENCIAS:")
+    print("\n⚠️  INCONSISTENCIAS:")
     print(f"  1. RUTs en Altas Cencosud pero NO en BICE: {len(cencosud_sin_bice)}")
     print(f"  2. RUTs en Altas Mercer pero NO en BICE: {len(mercer_sin_bice)}")
     print(f"  3. ⚠️  RUTs en BICE pero NO en ninguna Carga: {len(bice_sin_ninguna_carga)} (PONER OJO)")
@@ -208,9 +214,9 @@ def comparar_southbridge():
         cantidad_bice = len(df_bice[df_bice['RUT_NORM'] == rut])
         
         # Normalizar nombres y apellidos
-        nombre_carga = normalizar_nombre(reg_carga.get('Nombre propietario', ''))
-        apellido_pat = normalizar_nombre(reg_carga.get('Apellido paterno propietario', ''))
-        apellido_mat = normalizar_nombre(reg_carga.get('Apellido materno propietario', ''))
+        nombre_carga = normalizar_nombre(reg_carga.get(NOMBRE_PROPIETARIO, ''))
+        apellido_pat = normalizar_nombre(reg_carga.get(APELLIDO_PATERNO_PROPIETARIO, ''))
+        apellido_mat = normalizar_nombre(reg_carga.get(APELLIDO_MATERNO_PROPIETARIO, ''))
         apellidos_carga = f"{apellido_pat} {apellido_mat}".strip()
         nombre_bice = normalizar_nombre(reg_bice.get('Nombre', ''))
         apellido_bice = normalizar_nombre(reg_bice.get('Apellido', ''))
@@ -225,7 +231,7 @@ def comparar_southbridge():
             'APELLIDOS_CARGA': apellidos_carga,
             'NOMBRE_BICE': nombre_bice,
             'APELLIDO_BICE': apellido_bice,
-            'EMAIL_CARGA': reg_carga.get('Email propietario', ''),
+            'EMAIL_CARGA': reg_carga.get(EMAIL_PROPIETARIO, ''),
             'EMAIL_BICE': reg_bice.get('Email', ''),
             'CANTIDAD_CARGA': cantidad_carga,
             'CANTIDAD_BICE': cantidad_bice,
@@ -240,9 +246,9 @@ def comparar_southbridge():
         cantidad_bice = len(df_bice[df_bice['RUT_NORM'] == rut])
         
         # Normalizar nombres y apellidos
-        nombre_carga = normalizar_nombre(reg_carga.get('Nombre propietario', ''))
-        apellido_pat = normalizar_nombre(reg_carga.get('Apellido paterno propietario', ''))
-        apellido_mat = normalizar_nombre(reg_carga.get('Apellido materno propietario', ''))
+        nombre_carga = normalizar_nombre(reg_carga.get(NOMBRE_PROPIETARIO, ''))
+        apellido_pat = normalizar_nombre(reg_carga.get(APELLIDO_PATERNO_PROPIETARIO, ''))
+        apellido_mat = normalizar_nombre(reg_carga.get(APELLIDO_MATERNO_PROPIETARIO, ''))
         apellidos_carga = f"{apellido_pat} {apellido_mat}".strip()
         nombre_bice = normalizar_nombre(reg_bice.get('Nombre', ''))
         apellido_bice = normalizar_nombre(reg_bice.get('Apellido', ''))
@@ -257,7 +263,7 @@ def comparar_southbridge():
             'APELLIDOS_CARGA': apellidos_carga,
             'NOMBRE_BICE': nombre_bice,
             'APELLIDO_BICE': apellido_bice,
-            'EMAIL_CARGA': reg_carga.get('Email propietario', ''),
+            'EMAIL_CARGA': reg_carga.get(EMAIL_PROPIETARIO, ''),
             'EMAIL_BICE': reg_bice.get('Email', ''),
             'CANTIDAD_CARGA': cantidad_carga,
             'CANTIDAD_BICE': cantidad_bice,
@@ -269,9 +275,9 @@ def comparar_southbridge():
         reg_carga = df_carga_cencosud[df_carga_cencosud['RUT_NORM'] == rut].iloc[0]
         
         # Normalizar nombres y apellidos
-        nombre_carga = normalizar_nombre(reg_carga.get('Nombre propietario', ''))
-        apellido_pat = normalizar_nombre(reg_carga.get('Apellido paterno propietario', ''))
-        apellido_mat = normalizar_nombre(reg_carga.get('Apellido materno propietario', ''))
+        nombre_carga = normalizar_nombre(reg_carga.get(NOMBRE_PROPIETARIO, ''))
+        apellido_pat = normalizar_nombre(reg_carga.get(APELLIDO_PATERNO_PROPIETARIO, ''))
+        apellido_mat = normalizar_nombre(reg_carga.get(APELLIDO_MATERNO_PROPIETARIO, ''))
         apellidos_carga = f"{apellido_pat} {apellido_mat}".strip()
         
         resultados.append({
@@ -282,7 +288,7 @@ def comparar_southbridge():
             'APELLIDOS_CARGA': apellidos_carga,
             'NOMBRE_BICE': '',
             'APELLIDO_BICE': '',
-            'EMAIL_CARGA': reg_carga.get('Email propietario', ''),
+            'EMAIL_CARGA': reg_carga.get(EMAIL_PROPIETARIO, ''),
             'EMAIL_BICE': '',
             'CANTIDAD_CARGA': len(df_carga_cencosud[df_carga_cencosud['RUT_NORM'] == rut]),
             'CANTIDAD_BICE': 0,
@@ -294,9 +300,9 @@ def comparar_southbridge():
         reg_carga = df_carga_mercer[df_carga_mercer['RUT_NORM'] == rut].iloc[0]
         
         # Normalizar nombres y apellidos
-        nombre_carga = normalizar_nombre(reg_carga.get('Nombre propietario', ''))
-        apellido_pat = normalizar_nombre(reg_carga.get('Apellido paterno propietario', ''))
-        apellido_mat = normalizar_nombre(reg_carga.get('Apellido materno propietario', ''))
+        nombre_carga = normalizar_nombre(reg_carga.get(NOMBRE_PROPIETARIO, ''))
+        apellido_pat = normalizar_nombre(reg_carga.get(APELLIDO_PATERNO_PROPIETARIO, ''))
+        apellido_mat = normalizar_nombre(reg_carga.get(APELLIDO_MATERNO_PROPIETARIO, ''))
         apellidos_carga = f"{apellido_pat} {apellido_mat}".strip()
         
         resultados.append({
@@ -307,7 +313,7 @@ def comparar_southbridge():
             'APELLIDOS_CARGA': apellidos_carga,
             'NOMBRE_BICE': '',
             'APELLIDO_BICE': '',
-            'EMAIL_CARGA': reg_carga.get('Email propietario', ''),
+            'EMAIL_CARGA': reg_carga.get(EMAIL_PROPIETARIO, ''),
             'EMAIL_BICE': '',
             'CANTIDAD_CARGA': len(df_carga_mercer[df_carga_mercer['RUT_NORM'] == rut]),
             'CANTIDAD_BICE': 0,
@@ -360,6 +366,10 @@ def comparar_southbridge():
     # Imprimir resumen usando función común
     imprimir_resumen(df_coincidencias, df_inconsistencias, archivos)
     
+    # Crear carpeta de resultado una sola vez
+    resultado_dir = os.path.join(script_dir, 'resultado')
+    os.makedirs(resultado_dir, exist_ok=True)
+
     # Generar CSV especial para registros en CARGA CENCOSUD que NO están en BICE
     df_cencosud_sin_bice = df_inconsistencias[df_inconsistencias['ESTADO'] == 'CARGA_CENCOSUD_SIN_BICE'].copy()
     if len(df_cencosud_sin_bice) > 0:
@@ -371,7 +381,6 @@ def comparar_southbridge():
         })
         
         from utils.file_handlers import guardar_csv_formato_especial
-        resultado_dir = os.path.join(script_dir, 'resultado')
         archivo_csv_cencosud = os.path.join(resultado_dir, f'carga_sin_bice_cencosud_{timestamp}.csv')
         guardar_csv_formato_especial(df_csv_cencosud, archivo_csv_cencosud)
         print(f"   📄 Carga Cencosud sin BICE (hay que agregar): {os.path.basename(archivo_csv_cencosud)}")
@@ -387,7 +396,6 @@ def comparar_southbridge():
         })
         
         from utils.file_handlers import guardar_csv_formato_especial
-        resultado_dir = os.path.join(script_dir, 'resultado')
         archivo_csv_mercer = os.path.join(resultado_dir, f'carga_sin_bice_mercer_{timestamp}.csv')
         guardar_csv_formato_especial(df_csv_mercer, archivo_csv_mercer)
         print(f"   📄 Carga Mercer sin BICE (hay que agregar): {os.path.basename(archivo_csv_mercer)}")
@@ -403,14 +411,13 @@ def comparar_southbridge():
         })
         
         from utils.file_handlers import guardar_csv_formato_especial
-        resultado_dir = os.path.join(script_dir, 'resultado')
         archivo_csv_bice = os.path.join(resultado_dir, f'bice_sin_ninguna_carga_southbridge_{timestamp}.csv')
         guardar_csv_formato_especial(df_csv_bice, archivo_csv_bice, solo_rut=True)
         print(f"   ⚠️  BICE sin ninguna Carga (PONER OJO): {os.path.basename(archivo_csv_bice)}")
     
     # Mostrar muestras
     if len(df_inconsistencias) > 0:
-        print(f"\n🔍 Muestra de inconsistencias (primeros 10):")
+        print("\n🔍 Muestra de inconsistencias (primeros 10):")
         columnas_mostrar = ['RUT', 'ESTADO', 'TIPO', 'NOMBRE_CARGA', 'NOMBRE_BICE']
         print(df_inconsistencias.head(10)[columnas_mostrar].to_string(index=False))
     

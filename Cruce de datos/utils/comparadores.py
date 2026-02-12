@@ -158,7 +158,7 @@ def imprimir_resumen(df_coincidencias, df_inconsistencias, archivos):
     """
     archivo_coincidencias, archivo_inconsistencias = archivos
     
-    print(f"\n💾 Resultados guardados en:")
+    print("\n💾 Resultados guardados en:")
     print(f"   📗 Coincidencias: {os.path.basename(archivo_coincidencias)}")
     print(f"   📕 Inconsistencias: {os.path.basename(archivo_inconsistencias)}")
     

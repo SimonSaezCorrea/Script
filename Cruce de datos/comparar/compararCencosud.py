@@ -281,6 +281,10 @@ def comparar_cencosud():
     # Imprimir resumen usando función común
     imprimir_resumen(df_coincidencias, df_inconsistencias, archivos)
     
+    # Crear carpeta de resultado una sola vez
+    resultado_dir = os.path.join(script_dir, 'resultado')
+    os.makedirs(resultado_dir, exist_ok=True)
+
     # Generar CSV especial para registros en CARGA que NO están en BICE (hay que agregarlos)
     df_carga_sin_bice = df_inconsistencias[df_inconsistencias['ESTADO'] == 'CARGA_SIN_BICE'].copy()
     if len(df_carga_sin_bice) > 0:
@@ -294,7 +298,6 @@ def comparar_cencosud():
         
         # Guardar en formato especial
         from utils.file_handlers import guardar_csv_formato_especial
-        resultado_dir = os.path.join(script_dir, 'resultado')
         archivo_csv_carga = os.path.join(resultado_dir, f'carga_sin_bice_cencosud_{timestamp}.csv')
         guardar_csv_formato_especial(df_csv_carga, archivo_csv_carga)
         print(f"   📄 Carga sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga)}")
@@ -312,7 +315,6 @@ def comparar_cencosud():
         
         # Guardar en formato especial
         from utils.file_handlers import guardar_csv_formato_especial
-        resultado_dir = os.path.join(script_dir, 'resultado')
         archivo_csv_especial = os.path.join(resultado_dir, f'bice_sin_carga_cencosud_{timestamp}.csv')
         guardar_csv_formato_especial(df_csv_especial, archivo_csv_especial, solo_rut=True)
         print(f"   📄 BICE sin Carga (formato carga): {os.path.basename(archivo_csv_especial)}")

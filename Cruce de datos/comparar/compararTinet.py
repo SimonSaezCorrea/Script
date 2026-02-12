@@ -68,7 +68,7 @@ def comparar_tinet():
     # Leer Carga (Excel)
     try:
         df_carga = pd.read_excel(archivo_carga)
-        print(f"  ✓ Archivo Carga leído correctamente")
+        print("  ✓ Archivo Carga leído correctamente")
     except Exception as e:
         print(f"  ❌ Error al leer archivo de carga: {e}")
         return
@@ -76,12 +76,12 @@ def comparar_tinet():
     # Leer BICE (Excel)
     try:
         df_bice = pd.read_excel(archivo_bice)
-        print(f"  ✓ Archivo BICE leído correctamente")
+        print("  ✓ Archivo BICE leído correctamente")
     except Exception as e:
         print(f"  ❌ Error al leer archivo BICE: {e}")
         return
 
-    print(f"\n📈 Registros totales:")
+    print("\n📈 Registros totales:")
     print(f"  - Carga (total): {len(df_carga)}")
     print(f"  - BICE (total): {len(df_bice)}")
 
@@ -113,7 +113,7 @@ def comparar_tinet():
     ruts_carga = set(df_carga['RUT_NORM'].unique())
     ruts_bice = set(df_bice['RUT_NORM'].unique())
 
-    print(f"\n🔢 RUTs únicos:")
+    print("\n🔢 RUTs únicos:")
     print(f"  - Carga: {len(ruts_carga)}")
     print(f"  - BICE: {len(ruts_bice)}")
 
@@ -142,7 +142,7 @@ def comparar_tinet():
     print("="*80)
 
     print(f"\n✅ COINCIDENCIAS: {len(coincidencias)}")
-    print(f"\n⚠️  INCONSISTENCIAS:")
+    print("\n⚠️  INCONSISTENCIAS:")
     print(f"  1. RUTs en Carga pero NO en BICE: {len(carga_no_en_bice)}")
     print(f"  2. RUTs en BICE pero NO en Carga: {len(bice_no_en_carga)}")
     print(f"  3. RUTs con diferente cantidad de registros: {len(diferencias_cantidad)}")
@@ -150,7 +150,7 @@ def comparar_tinet():
     resultados = []
 
     # 1. Coincidencias (con cantidad correcta)
-    ruts_con_diferencia_cantidad = set([d['rut'] for d in diferencias_cantidad])
+    ruts_con_diferencia_cantidad = {d['rut'] for d in diferencias_cantidad}
     for rut in coincidencias:
         if rut in ruts_con_diferencia_cantidad:
             continue  # Se procesarán después
@@ -260,8 +260,7 @@ def comparar_tinet():
         
         # Guardar en formato especial
         from utils.file_handlers import guardar_csv_formato_especial
-        resultado_dir = os.path.join(script_dir, 'resultado')
-        archivo_csv_carga = os.path.join(resultado_dir, f'carga_sin_bice_tinet_{timestamp}.csv')
+        archivo_csv_carga = os.path.join(script_dir, 'resultados', f'carga_sin_bice_tinet_{timestamp}.csv')
         guardar_csv_formato_especial(df_csv_carga, archivo_csv_carga)
         print(f"   📄 Carga sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga)}")
 
@@ -278,13 +277,12 @@ def comparar_tinet():
         
         # Guardar en formato especial
         from utils.file_handlers import guardar_csv_formato_especial
-        resultado_dir = os.path.join(script_dir, 'resultado')
-        archivo_csv_especial = os.path.join(resultado_dir, f'bice_sin_carga_tinet_{timestamp}.csv')
+        archivo_csv_especial = os.path.join(script_dir, 'resultados', f'bice_sin_carga_tinet_{timestamp}.csv')
         guardar_csv_formato_especial(df_csv_especial, archivo_csv_especial, solo_rut=True)
         print(f"   📄 BICE sin Carga (formato carga): {os.path.basename(archivo_csv_especial)}")
 
     if len(df_inconsistencias) > 0:
-        print(f"\n🔍 Muestra de inconsistencias (primeros 10):")
+        print("\n🔍 Muestra de inconsistencias (primeros 10):")
         columnas_mostrar = ['RUT', 'ESTADO', 'NOMBRES_CARGA', 'NOMBRE_BICE', 'APELLIDO_BICE']
         print(df_inconsistencias.head(10)[columnas_mostrar].to_string(index=False))
 
