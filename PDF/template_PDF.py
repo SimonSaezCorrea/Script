@@ -1,86 +1,11 @@
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import DictionaryObject, ArrayObject, NameObject, NumberObject, TextStringObject, BooleanObject
-import os
+import sys
 from pathlib import Path
 
-def seleccionar_archivo_pdf():
-    """
-    Interfaz de consola para navegar y seleccionar un archivo PDF.
-    Retorna la ruta del archivo seleccionado o None si se cancela.
-    """
-    ruta_actual = Path.cwd()
-    
-    while True:
-        # Limpiar pantalla (compatible con Windows y Unix)
-        os.system('cls' if os.name == 'nt' else 'clear')
-        
-        print("=" * 60)
-        print("SELECTOR DE ARCHIVOS PDF")
-        print("=" * 60)
-        print(f"\n📁 Ubicación actual: {ruta_actual}\n")
-        
-        # Listar contenido del directorio actual
-        try:
-            items = list(ruta_actual.iterdir())
-            carpetas = sorted([item for item in items if item.is_dir()])
-            archivos_pdf = sorted([item for item in items if item.is_file() and item.suffix.lower() == '.pdf'])
-            
-            # Mostrar opciones
-            opciones = []
-            tiene_parent = ruta_actual.parent != ruta_actual
-            
-            # Opción para subir un nivel (NO se agrega al array de opciones)
-            if tiene_parent:
-                print("0. ⬆️  [Subir un nivel]")
-            
-            # Listar carpetas
-            idx = 1
-            for carpeta in carpetas:
-                print(f"{idx}. 📁 {carpeta.name}/")
-                opciones.append(("dir", carpeta))
-                idx += 1
-            
-            # Listar archivos PDF
-            if archivos_pdf:
-                print("\n--- Archivos PDF ---")
-                for archivo in archivos_pdf:
-                    print(f"{idx}. 📄 {archivo.name}")
-                    opciones.append(("file", archivo))
-                    idx += 1
-            else:
-                print("\n⚠️  No hay archivos PDF en este directorio")
-            
-            # Opciones adicionales
-            print(f"\n{idx}. ❌ Cancelar")
-            opcion_cancelar = idx
-            
-            # Solicitar selección
-            print("\n" + "=" * 60)
-            try:
-                seleccion = int(input("Selecciona una opción: "))
-                
-                if seleccion == 0 and tiene_parent:
-                    ruta_actual = ruta_actual.parent
-                elif seleccion == opcion_cancelar:
-                    return None
-                elif 1 <= seleccion < opcion_cancelar:
-                    tipo, valor = opciones[seleccion - 1]
-                    
-                    if tipo == "dir":
-                        ruta_actual = valor
-                    elif tipo == "file":
-                        return str(valor)
-                else:
-                    input("\n❌ Opción inválida. Presiona Enter para continuar...")
-                    
-            except ValueError:
-                input("\n❌ Por favor ingresa un número válido. Presiona Enter para continuar...")
-            except KeyboardInterrupt:
-                return None
-                
-        except PermissionError:
-            input(f"\n❌ Sin permisos para acceder a {ruta_actual}. Presiona Enter para volver...")
-            ruta_actual = ruta_actual.parent
+# Agregar el path para importar desde utils
+sys.path.append(str(Path(__file__).parent.parent))
+from utils.selector_archivo import seleccionar_archivo
 
 def generar_nombre_salida(archivo_entrada):
     """
@@ -280,7 +205,10 @@ if __name__ == "__main__":
     print("🐾 Generador de Plantillas de Contrato PDF\n")
     
     # Seleccionar archivo de entrada mediante interfaz
-    archivo_entrada = seleccionar_archivo_pdf()
+    archivo_entrada = seleccionar_archivo(
+        extensiones=['.pdf'],
+        titulo="SELECTOR DE ARCHIVOS PDF"
+    )
     
     if archivo_entrada is None:
         print("\n❌ Operación cancelada por el usuario.")
