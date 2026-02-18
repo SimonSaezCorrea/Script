@@ -65,16 +65,16 @@ def comparar_sonda():
     df_carga = None
     try:
         df_carga = pd.read_excel(archivo_carga)
-        print(f"  ✓ Archivo Carga leído correctamente")
+        print("  ✓ Archivo Carga leído correctamente")
     except Exception as e:
         print(f"  ❌ Error al leer archivo de carga: {e}")
         return
     
     # Leer BICE (Excel)
     df_bice = pd.read_excel(archivo_bice)
-    print(f"  ✓ Archivo BICE leído correctamente")
+    print("  ✓ Archivo BICE leído correctamente")
     
-    print(f"\n📈 Registros totales:")
+    print("\n📈 Registros totales:")
     print(f"  - Carga: {len(df_carga)}")
     print(f"  - BICE (total): {len(df_bice)}")
     
@@ -83,7 +83,7 @@ def comparar_sonda():
     if 'Estado' in df_bice.columns:
         df_bice = filtrar_activos(df_bice, 'Estado')
         print(f"  - BICE (activos): {len(df_bice)}")
-        print(f"\n🔍 Filtrando registros activos (Estado = VERDADERO)...")
+        print("\n🔍 Filtrando registros activos (Estado = VERDADERO)...")
         print(f"  ✓ BICE: {len(df_bice)} activos de {total_bice} totales ({total_bice - len(df_bice)} inactivos filtrados)")
     
     # Procesar RUTs
@@ -99,7 +99,7 @@ def comparar_sonda():
     ruts_carga = set(df_carga['RUT_NORM'].unique())
     ruts_bice = set(df_bice['RUT_NORM'].unique())
     
-    print(f"\n🔢 RUTs únicos:")
+    print("\n🔢 RUTs únicos:")
     print(f"  - Carga: {len(ruts_carga)}")
     print(f"  - BICE: {len(ruts_bice)}")
     
@@ -133,7 +133,7 @@ def comparar_sonda():
     print("="*80)
     
     print(f"\n✅ COINCIDENCIAS: {len(coincidencias)}")
-    print(f"\n⚠️  INCONSISTENCIAS:")
+    print("\n⚠️  INCONSISTENCIAS:")
     print(f"  1. RUTs en Carga pero NO en BICE: {len(carga_no_en_bice)}")
     print(f"  2. RUTs en BICE pero NO en Carga: {len(bice_no_en_carga)}")
     print(f"  3. RUTs con diferente cantidad de registros: {len(diferencias_cantidad)}")
@@ -282,7 +282,7 @@ def comparar_sonda():
     
     # Mostrar muestras
     if len(df_inconsistencias) > 0:
-        print(f"\n🔍 Muestra de inconsistencias (primeros 10):")
+        print("\n🔍 Muestra de inconsistencias (primeros 10):")
         columnas_mostrar = ['RUT', 'ESTADO', 'NOMBRES_CARGA', 'NOMBRE_BICE', 'APELLIDO_BICE']
         print(df_inconsistencias.head(10)[columnas_mostrar].to_string(index=False))
     
