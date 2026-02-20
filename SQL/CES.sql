@@ -40,6 +40,26 @@ left join countries c3
 group by c3."iso"
 
 
+-- CES por Empresa y la cantidad Historica
+select c2."name", sum(c.value)/count(c.value) as ces, count(*)
+from ces c
+left join memberships m 
+	on m.id = c."membershipId"
+left join "plans" p 
+	on p.id = m."planId"
+left join users u
+	on u."mongoId" = m."userId" 
+left join "users-companies-access" uca 
+	on uca."userId" = u."mongoId" 
+left join companies c2
+	on c2.id = uca."companyId"
+left join countries c3 
+	on c3.id = p."countryId" 
+--	and c."createdAt" > '2025-09-30' 
+--	and c."createdAt" < '2025-12-31'
+group by c2."name"
+
+
 -- CES por Pais, anio, Q(X), Valor y Total de respuesta
 SELECT 
     c3."iso",

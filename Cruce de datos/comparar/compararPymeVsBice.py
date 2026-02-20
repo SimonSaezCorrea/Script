@@ -80,6 +80,51 @@ def es_empresa_omg(nombre_empresa):
     return False
 
 
+def generar_email_unico(email_base, emails_existentes):
+    """
+    Genera un email único agregando -copy, --copy, ---copy, etc.
+    hasta que no exista en el conjunto de emails existentes.
+    
+    Args:
+        email_base: Email original
+        emails_existentes: Set de emails que ya existen
+    
+    Returns:
+        Email único
+    """
+    if not email_base or pd.isna(email_base) or str(email_base).strip() == '':
+        return email_base
+    
+    email_base = str(email_base).strip().lower()
+    
+    # Si no existe, retornar tal cual
+    if email_base not in emails_existentes:
+        return email_base
+    
+    # Si existe, agregar -copy, --copy, ---copy, etc.
+    contador = 1
+    while True:
+        prefijo = '-' * contador + 'copy'
+        
+        # Separar nombre y dominio
+        if '@' in email_base:
+            nombre, dominio = email_base.rsplit('@', 1)
+            email_nuevo = f"{nombre}{prefijo}@{dominio}"
+        else:
+            email_nuevo = f"{email_base}{prefijo}"
+        
+        # Verificar si este nuevo email existe
+        if email_nuevo not in emails_existentes:
+            return email_nuevo
+        
+        contador += 1
+        
+        # Seguridad: si llega a 100, algo está mal
+        if contador > 100:
+            print(f"  ⚠️  Warning: Email {email_base} generó más de 100 copias")
+            return email_nuevo
+
+
 def comparar_pyme_bice():
     """
     Compara los RUTs entre el archivo de carga y los archivos BICE (OMG + Pyme).
@@ -550,62 +595,194 @@ def comparar_pyme_bice():
         for estado, cantidad in df_inconsistencias['ESTADO'].value_counts().items():
             print(f"      - {estado}: {cantidad}")
     
-    # Generar CSV especial para registros en CARGA que NO están en BICE (hay que agregarlos)
-    df_carga_sin_bice_omg = df_inconsistencias[df_inconsistencias['ESTADO'] == 'CARGA_OMG_SIN_BICE'].copy()
-    df_carga_sin_bice_pyme = df_inconsistencias[df_inconsistencias['ESTADO'] == 'CARGA_PYME_SIN_BICE'].copy()
+    # ========================================
+    # PROCESAR REGISTROS EN CARGA QUE NO ESTÁN EN BICE
+    # Aplicar transformación de duplicados (agregar ceros)
+    # ========================================
+    print("\n" + "="*60)
+    print("📋 PROCESANDO DUPLICADOS CON CEROS A LA DERECHA")
+    print("="*60)
     
     from utils.file_handlers import guardar_csv_formato_especial
     resultado_dir = os.path.join(script_dir, 'resultado')
     
-    if len(df_carga_sin_bice_omg) > 0:
-        # Preparar DataFrame OMG con el formato requerido
-        df_csv_carga_omg = pd.DataFrame({
-            'Nombre': df_carga_sin_bice_omg['NOMBRE_CARGA'].fillna('').astype(str).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
-            'Apellido': (df_carga_sin_bice_omg['PATERNO'].fillna('').astype(str) + ' ' + df_carga_sin_bice_omg['MATERNO'].fillna('').astype(str)).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
-            'Email': df_carga_sin_bice_omg['CORREO'].fillna('').astype(str).str.lower().str.strip(),
-            'RUT': df_carga_sin_bice_omg['RUT']
-        })
-        
-        # Separar registros sin email
-        df_omg_sin_email = df_csv_carga_omg[df_csv_carga_omg['Email'].str.strip() == ''].copy()
-        df_omg_con_email = df_csv_carga_omg[df_csv_carga_omg['Email'].str.strip() != ''].copy()
-        
-        # Guardar archivo principal (solo con email)
-        if len(df_omg_con_email) > 0:
-            archivo_csv_carga_omg = os.path.join(resultado_dir, f'carga_sin_bice_omg_{timestamp}.csv')
-            guardar_csv_formato_especial(df_omg_con_email, archivo_csv_carga_omg)
-            print(f"   📄 Carga OMG sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga_omg)} ({len(df_omg_con_email)} registros)")
-        
-        # Guardar archivo de error (sin email)
-        if len(df_omg_sin_email) > 0:
-            archivo_error_omg = os.path.join(resultado_dir, f'error_carga_omg_{timestamp}.csv')
-            guardar_csv_formato_especial(df_omg_sin_email, archivo_error_omg)
-            print(f"   ⚠️  Error OMG sin email: {os.path.basename(archivo_error_omg)} ({len(df_omg_sin_email)} registros)")
+    # Obtener RUTs de BICE para saber cuáles ya existen
+    ruts_bice_omg_existentes = set(df_bice_omg['RUT_NORM'])
+    ruts_bice_pyme_existentes = set(df_bice_pyme['RUT_NORM'])
     
-    if len(df_carga_sin_bice_pyme) > 0:
-        # Preparar DataFrame Pyme con el formato requerido
-        df_csv_carga_pyme = pd.DataFrame({
-            'Nombre': df_carga_sin_bice_pyme['NOMBRE_CARGA'].fillna('').astype(str).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
-            'Apellido': (df_carga_sin_bice_pyme['PATERNO'].fillna('').astype(str) + ' ' + df_carga_sin_bice_pyme['MATERNO'].fillna('').astype(str)).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
-            'Email': df_carga_sin_bice_pyme['CORREO'].fillna('').astype(str).str.lower().str.strip(),
-            'RUT': df_carga_sin_bice_pyme['RUT']
-        })
+    # Procesar OMG
+    if len(df_carga_omg) > 0:
+        print(f"\n🏢 Procesando registros OMG...")
         
-        # Separar registros sin email
-        df_pyme_sin_email = df_csv_carga_pyme[df_csv_carga_pyme['Email'].str.strip() == ''].copy()
-        df_pyme_con_email = df_csv_carga_pyme[df_csv_carga_pyme['Email'].str.strip() != ''].copy()
+        # Agrupar por RUT y agregar índice de repetición
+        df_carga_omg_proc = df_carga_omg.copy()
+        df_carga_omg_proc['REPETICION'] = df_carga_omg_proc.groupby('RUT_NORM').cumcount()
         
-        # Guardar archivo principal (solo con email)
-        if len(df_pyme_con_email) > 0:
-            archivo_csv_carga_pyme = os.path.join(resultado_dir, f'carga_sin_bice_pyme_{timestamp}.csv')
-            guardar_csv_formato_especial(df_pyme_con_email, archivo_csv_carga_pyme)
-            print(f"   📄 Carga Pyme sin BICE (hay que agregar): {os.path.basename(archivo_csv_carga_pyme)} ({len(df_pyme_con_email)} registros)")
+        # Agregar ceros según repetición
+        def agregar_ceros_por_repeticion(row):
+            rut_base = row['RUT_NORM']
+            repeticion = row['REPETICION']
+            
+            if repeticion == 0:
+                return rut_base  # Primera aparición, sin cambios
+            else:
+                # Agregar tantos ceros como repeticiones
+                return rut_base + ('0' * repeticion)
         
-        # Guardar archivo de error (sin email)
-        if len(df_pyme_sin_email) > 0:
-            archivo_error_pyme = os.path.join(resultado_dir, f'error_carga_pyme_{timestamp}.csv')
-            guardar_csv_formato_especial(df_pyme_sin_email, archivo_error_pyme)
-            print(f"   ⚠️  Error PYME sin email: {os.path.basename(archivo_error_pyme)} ({len(df_pyme_sin_email)} registros)")
+        df_carga_omg_proc['RUT_CON_CEROS'] = df_carga_omg_proc.apply(agregar_ceros_por_repeticion, axis=1)
+        
+        # Contar duplicados transformados
+        duplicados_omg = df_carga_omg_proc[df_carga_omg_proc['REPETICION'] > 0]
+        print(f"  ✓ Total registros OMG: {len(df_carga_omg_proc)}")
+        print(f"  ✓ RUTs únicos originales: {df_carga_omg_proc['RUT_NORM'].nunique()}")
+        print(f"  ✓ Duplicados transformados con ceros: {len(duplicados_omg)}")
+        
+        # Filtrar los que NO están en BICE OMG
+        df_carga_omg_no_en_bice = df_carga_omg_proc[~df_carga_omg_proc['RUT_CON_CEROS'].isin(ruts_bice_omg_existentes)].copy()
+        
+        print(f"  📝 Registros OMG que NO están en BICE: {len(df_carga_omg_no_en_bice)}")
+        
+        if len(df_carga_omg_no_en_bice) > 0:
+            # Obtener emails existentes en BICE OMG
+            emails_existentes_omg = set()
+            if 'Email' in df_bice_omg.columns:
+                emails_existentes_omg = set(
+                    df_bice_omg['Email'].dropna().astype(str).str.lower().str.strip()
+                )
+            
+            # Generar emails únicos
+            emails_procesados_omg = []
+            emails_modificados_omg = 0
+            
+            for idx, row in df_carga_omg_no_en_bice.iterrows():
+                email_original = row.get('CORREO', '')
+                if pd.isna(email_original):
+                    email_original = ''
+                email_original = str(email_original).strip().lower()
+                
+                email_unico = generar_email_unico(email_original, emails_existentes_omg)
+                
+                if email_unico != email_original and email_original != '':
+                    emails_modificados_omg += 1
+                
+                # Agregar a set para siguientes validaciones
+                if email_unico and email_unico != '':
+                    emails_existentes_omg.add(email_unico)
+                emails_procesados_omg.append(email_unico)
+            
+            print(f"  📧 Emails OMG modificados para evitar duplicados: {emails_modificados_omg}")
+            
+            # Preparar DataFrame con el formato requerido
+            df_csv_carga_omg = pd.DataFrame({
+                'Nombre': df_carga_omg_no_en_bice['NOMBRE CARGA'].fillna('').astype(str).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
+                'Apellido': (df_carga_omg_no_en_bice['PATERNO'].fillna('').astype(str) + ' ' + df_carga_omg_no_en_bice['MATERNO'].fillna('').astype(str)).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
+                'Email': emails_procesados_omg,
+                'RUT': df_carga_omg_no_en_bice['RUT_CON_CEROS']  # Usar RUT con ceros
+            })
+            
+            # Separar registros sin email
+            df_omg_sin_email = df_csv_carga_omg[df_csv_carga_omg['Email'].str.strip() == ''].copy()
+            df_omg_con_email = df_csv_carga_omg[df_csv_carga_omg['Email'].str.strip() != ''].copy()
+            
+            # Guardar archivo principal (solo con email)
+            if len(df_omg_con_email) > 0:
+                archivo_csv_carga_omg = os.path.join(resultado_dir, f'carga_sin_bice_omg_{timestamp}.csv')
+                guardar_csv_formato_especial(df_omg_con_email, archivo_csv_carga_omg)
+                print(f"\n💾 Archivo OMG generado:")
+                print(f"   📄 {os.path.basename(archivo_csv_carga_omg)} ({len(df_omg_con_email)} registros)")
+                
+                # Mostrar ejemplos de RUTs con ceros
+                df_con_ceros_omg = df_omg_con_email[df_omg_con_email['RUT'].str.endswith('0')]
+                if len(df_con_ceros_omg) > 0:
+                    print(f"   📌 RUTs con ceros agregados (duplicados): {len(df_con_ceros_omg)} de {len(df_omg_con_email)}")
+            
+            # Guardar archivo de error (sin email)
+            if len(df_omg_sin_email) > 0:
+                archivo_error_omg = os.path.join(resultado_dir, f'error_carga_omg_{timestamp}.csv')
+                guardar_csv_formato_especial(df_omg_sin_email, archivo_error_omg)
+                print(f"   ⚠️  Error OMG sin email: {os.path.basename(archivo_error_omg)} ({len(df_omg_sin_email)} registros)")
+    
+    # Procesar Pyme
+    if len(df_carga_pyme) > 0:
+        print(f"\n🏢 Procesando registros Pyme...")
+        
+        # Agrupar por RUT y agregar índice de repetición
+        df_carga_pyme_proc = df_carga_pyme.copy()
+        df_carga_pyme_proc['REPETICION'] = df_carga_pyme_proc.groupby('RUT_NORM').cumcount()
+        
+        # Agregar ceros según repetición
+        df_carga_pyme_proc['RUT_CON_CEROS'] = df_carga_pyme_proc.apply(agregar_ceros_por_repeticion, axis=1)
+        
+        # Contar duplicados transformados
+        duplicados_pyme = df_carga_pyme_proc[df_carga_pyme_proc['REPETICION'] > 0]
+        print(f"  ✓ Total registros Pyme: {len(df_carga_pyme_proc)}")
+        print(f"  ✓ RUTs únicos originales: {df_carga_pyme_proc['RUT_NORM'].nunique()}")
+        print(f"  ✓ Duplicados transformados con ceros: {len(duplicados_pyme)}")
+        
+        # Filtrar los que NO están en BICE Pyme
+        df_carga_pyme_no_en_bice = df_carga_pyme_proc[~df_carga_pyme_proc['RUT_CON_CEROS'].isin(ruts_bice_pyme_existentes)].copy()
+        
+        print(f"  📝 Registros Pyme que NO están en BICE: {len(df_carga_pyme_no_en_bice)}")
+        
+        if len(df_carga_pyme_no_en_bice) > 0:
+            # Obtener emails existentes en BICE Pyme
+            emails_existentes_pyme = set()
+            if 'Email' in df_bice_pyme.columns:
+                emails_existentes_pyme = set(
+                    df_bice_pyme['Email'].dropna().astype(str).str.lower().str.strip()
+                )
+            
+            # Generar emails únicos
+            emails_procesados_pyme = []
+            emails_modificados_pyme = 0
+            
+            for idx, row in df_carga_pyme_no_en_bice.iterrows():
+                email_original = row.get('CORREO', '')
+                if pd.isna(email_original):
+                    email_original = ''
+                email_original = str(email_original).strip().lower()
+                
+                email_unico = generar_email_unico(email_original, emails_existentes_pyme)
+                
+                if email_unico != email_original and email_original != '':
+                    emails_modificados_pyme += 1
+                
+                # Agregar a set para siguientes validaciones
+                if email_unico and email_unico != '':
+                    emails_existentes_pyme.add(email_unico)
+                emails_procesados_pyme.append(email_unico)
+            
+            print(f"  📧 Emails Pyme modificados para evitar duplicados: {emails_modificados_pyme}")
+            
+            # Preparar DataFrame con el formato requerido
+            df_csv_carga_pyme = pd.DataFrame({
+                'Nombre': df_carga_pyme_no_en_bice['NOMBRE CARGA'].fillna('').astype(str).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
+                'Apellido': (df_carga_pyme_no_en_bice['PATERNO'].fillna('').astype(str) + ' ' + df_carga_pyme_no_en_bice['MATERNO'].fillna('').astype(str)).str.title().str.replace(r'\s+', ' ', regex=True).str.strip(),
+                'Email': emails_procesados_pyme,
+                'RUT': df_carga_pyme_no_en_bice['RUT_CON_CEROS']  # Usar RUT con ceros
+            })
+            
+            # Separar registros sin email
+            df_pyme_sin_email = df_csv_carga_pyme[df_csv_carga_pyme['Email'].str.strip() == ''].copy()
+            df_pyme_con_email = df_csv_carga_pyme[df_csv_carga_pyme['Email'].str.strip() != ''].copy()
+            
+            # Guardar archivo principal (solo con email)
+            if len(df_pyme_con_email) > 0:
+                archivo_csv_carga_pyme = os.path.join(resultado_dir, f'carga_sin_bice_pyme_{timestamp}.csv')
+                guardar_csv_formato_especial(df_pyme_con_email, archivo_csv_carga_pyme)
+                print(f"\n💾 Archivo Pyme generado:")
+                print(f"   📄 {os.path.basename(archivo_csv_carga_pyme)} ({len(df_pyme_con_email)} registros)")
+                
+                # Mostrar ejemplos de RUTs con ceros
+                df_con_ceros_pyme = df_pyme_con_email[df_pyme_con_email['RUT'].str.endswith('0')]
+                if len(df_con_ceros_pyme) > 0:
+                    print(f"   📌 RUTs con ceros agregados (duplicados): {len(df_con_ceros_pyme)} de {len(df_pyme_con_email)}")
+            
+            # Guardar archivo de error (sin email)
+            if len(df_pyme_sin_email) > 0:
+                archivo_error_pyme = os.path.join(resultado_dir, f'error_carga_pyme_{timestamp}.csv')
+                guardar_csv_formato_especial(df_pyme_sin_email, archivo_error_pyme)
+                print(f"   ⚠️  Error PYME sin email: {os.path.basename(archivo_error_pyme)} ({len(df_pyme_sin_email)} registros)")
     
     # Generar CSV especial para registros en BICE que NO están en Carga
     df_bice_sin_carga_omg = df_inconsistencias[df_inconsistencias['ESTADO'] == 'BICE_OMG_SIN_CARGA'].copy()
