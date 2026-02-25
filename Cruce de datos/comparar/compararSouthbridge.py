@@ -1,12 +1,12 @@
 """
-Script para comparar datos entre archivos de altas Cencosud + Mercer y archivo BICE Southbridge.
+Script para comparar datos entre el archivo de carga Pawer y el archivo BICE Southbridge.
 
-Compara RUTs y reporta inconsistencias considerando ambas empresas.
+Compara RUTs y reporta inconsistencias.
+La columna 'Canal' del archivo de carga se usa como extrainfo en el CSV de salida.
 
 Archivos esperados en carpeta `data/Southbridge`:
-- Altas SOAP al31012026-CENCOSUD.xlsx (CARGA Cencosud - Altas a agregar)
-- Altas SOAP al31012026-MERCER.xlsx (CARGA Mercer - Altas a agregar)
-- Southbridge_users_03_02_2026.xlsx (BICE - Usuarios existentes de ambas empresas)
+- Pawer *.xlsx              (Carga Pawer - Altas a agregar, con columna Canal)
+- Southbridge_users_*.xlsx  (BICE - Usuarios existentes)
 """
 import pandas as pd
 import os
@@ -24,11 +24,13 @@ from utils.comparadores import (
 )
 from utils.normalizers import combinar_rut_dv, normalizar_nombre
 
-# Constants for column names
+# Constantes de columnas
 NOMBRE_PROPIETARIO = 'Nombre propietario'
 APELLIDO_PATERNO_PROPIETARIO = 'Apellido paterno propietario'
 APELLIDO_MATERNO_PROPIETARIO = 'Apellido materno propietario'
 EMAIL_PROPIETARIO = 'Email propietario'
+COL_CANAL = 'Canal'
+COL_EXTRA_INFO = 'Extra Info'  # Columna en el archivo BICE
 
 
 def normalizar_ruts_dataframe_southbridge(df, col_rut, col_dv=None):
@@ -37,393 +39,414 @@ def normalizar_ruts_dataframe_southbridge(df, col_rut, col_dv=None):
     Si tiene columna de DV separada, las combina primero.
     """
     if col_dv and col_dv in df.columns:
-        # Combinar RUT + DV
-        df['RUT_COMPLETO'] = df.apply(lambda row: combinar_rut_dv(row.get(col_rut, ''), row.get(col_dv, '')), axis=1)
+        df['RUT_COMPLETO'] = df.apply(
+            lambda row: combinar_rut_dv(row.get(col_rut, ''), row.get(col_dv, '')), axis=1
+        )
         col_a_normalizar = 'RUT_COMPLETO'
     else:
         col_a_normalizar = col_rut
-    
-    # Normalizar RUTs
+
     df['RUT_NORM'] = df[col_a_normalizar].apply(normalizar_rut_comparacion)
-    
+
     # Filtrar solo RUTs válidos
     df = df[df['RUT_NORM'].notna() & (df['RUT_NORM'] != '')].copy()
-    
-    # Crear columna RUT limpia (sin puntos ni guiones) para mostrar
     df['RUT'] = df['RUT_NORM']
-    
+
     return df
+
+
+def resolver_canal_por_rut(df_carga):
+    """
+    Para cada RUT único determina el/los canal(es) asociados.
+    Si un RUT tiene varios canales distintos los concatena con ' | '.
+
+    Returns:
+        Serie indexada por RUT_NORM con el valor de Canal (str)
+    """
+    canal_por_rut = (
+        df_carga.groupby('RUT_NORM')[COL_CANAL]
+        .apply(lambda s: ' | '.join(sorted(s.dropna().astype(str).str.strip().unique())))
+    )
+    return canal_por_rut
 
 
 def comparar_southbridge():
     """
-    Compara los RUTs entre los archivos de altas (Cencosud + Mercer) y el archivo BICE de Southbridge.
+    Compara los RUTs entre el archivo de carga Pawer y el archivo BICE de Southbridge.
+    Incluye la columna Canal como extrainfo en los CSVs de salida.
+    Gestiona correctamente los RUTs duplicados en el archivo de carga.
     """
-    # Rutas de archivos
     script_dir = os.path.dirname(os.path.abspath(__file__))
     data_dir = os.path.join(script_dir, 'data', 'Southbridge')
-    
-    # Buscar archivos dinámicamente
-    archivo_carga_cencosud = None
-    archivo_carga_mercer = None
+
+    archivo_carga = None
     archivo_bice = None
-    
+
     if not os.path.exists(data_dir):
         print(f"❌ Error: no existe la carpeta de datos: {data_dir}")
         return
-    
+
     for filename in os.listdir(data_dir):
         # Ignorar archivos temporales de Excel
         if filename.startswith('~$'):
             continue
-        
-        if 'Altas SOAP' in filename and 'CENCOSUD' in filename:
-            archivo_carga_cencosud = os.path.join(data_dir, filename)
-        elif 'Altas SOAP' in filename and 'MERCER' in filename:
-            archivo_carga_mercer = os.path.join(data_dir, filename)
-        elif 'Southbridge_users' in filename:
+
+        if 'Southbridge_users' in filename and filename.endswith('.xlsx'):
             archivo_bice = os.path.join(data_dir, filename)
-    
-    if not archivo_carga_cencosud or not archivo_carga_mercer or not archivo_bice:
+        elif filename.endswith('.xlsx'):
+            # Cualquier otro xlsx es el archivo de carga Pawer
+            archivo_carga = os.path.join(data_dir, filename)
+
+    if not archivo_carga or not archivo_bice:
         print("❌ Error: No se encontraron todos los archivos necesarios")
-        print(f"   Altas Cencosud: {archivo_carga_cencosud is not None}")
-        print(f"   Altas Mercer: {archivo_carga_mercer is not None}")
+        print(f"   Carga Pawer:     {archivo_carga is not None}")
         print(f"   BICE Southbridge: {archivo_bice is not None}")
         return
-    
-    print("="*80)
-    print("📊 COMPARACIÓN ALTAS (CENCOSUD + MERCER) vs BICE - SOUTHBRIDGE")
-    print("="*80)
-    print(f"\nArchivo Altas Cencosud: {os.path.basename(archivo_carga_cencosud)}")
-    print(f"Archivo Altas Mercer: {os.path.basename(archivo_carga_mercer)}")
-    print(f"Archivo BICE: {os.path.basename(archivo_bice)}")
-    
-    # Leer archivos
+
+    print("=" * 80)
+    print("📊 COMPARACIÓN CARGA PAWER vs BICE - SOUTHBRIDGE")
+    print("=" * 80)
+    print(f"\nArchivo Carga Pawer: {os.path.basename(archivo_carga)}")
+    print(f"Archivo BICE:        {os.path.basename(archivo_bice)}")
+
+    # ── Leer archivos ────────────────────────────────────────────────────────
     print("\n🔄 Leyendo archivos...")
-    
-    # Leer Altas Cencosud
+
     try:
-        df_carga_cencosud = pd.read_excel(archivo_carga_cencosud)
-        print("  ✓ Archivo Altas Cencosud leído correctamente")
+        df_carga = pd.read_excel(archivo_carga)
+        print("  ✓ Archivo Carga Pawer leído correctamente")
     except Exception as e:
-        print(f"  ❌ Error al leer archivo de altas Cencosud: {e}")
+        print(f"  ❌ Error al leer archivo de carga: {e}")
         return
-    
-    # Leer Altas Mercer
-    try:
-        df_carga_mercer = pd.read_excel(archivo_carga_mercer)
-        print("  ✓ Archivo Altas Mercer leído correctamente")
-    except Exception as e:
-        print(f"  ❌ Error al leer archivo de altas Mercer: {e}")
-        return
-    
-    # Leer BICE
+
     try:
         df_bice = pd.read_excel(archivo_bice)
         print("  ✓ Archivo BICE leído correctamente")
     except Exception as e:
         print(f"  ❌ Error al leer archivo BICE: {e}")
         return
-    
-    print("\n📈 Registros totales:")
-    print(f"  - Altas Cencosud (total): {len(df_carga_cencosud)}")
-    print(f"  - Altas Mercer (total): {len(df_carga_mercer)}")
-    print(f"  - BICE (total): {len(df_bice)}")
-    
-    # Filtrar solo registros con Estado póliza = "Aprobado" en archivos de Altas
-    total_cencosud = len(df_carga_cencosud)
-    if 'Estado póliza' in df_carga_cencosud.columns:
-        df_carga_cencosud['Estado póliza'] = df_carga_cencosud['Estado póliza'].astype(str).str.upper().str.strip()
-        df_carga_cencosud = df_carga_cencosud[df_carga_cencosud['Estado póliza'] == 'APROBADO'].copy()
-        print(f"  - Altas Cencosud (aprobadas): {len(df_carga_cencosud)} ({total_cencosud - len(df_carga_cencosud)} no aprobadas filtradas)")
-    
-    total_mercer = len(df_carga_mercer)
-    if 'Estado póliza' in df_carga_mercer.columns:
-        df_carga_mercer['Estado póliza'] = df_carga_mercer['Estado póliza'].astype(str).str.upper().str.strip()
-        df_carga_mercer = df_carga_mercer[df_carga_mercer['Estado póliza'] == 'APROBADO'].copy()
-        print(f"  - Altas Mercer (aprobadas): {len(df_carga_mercer)} ({total_mercer - len(df_carga_mercer)} no aprobadas filtradas)")
-    
-    # Filtrar solo registros activos en BICE
+
+    print(f"\n📈 Registros totales:")
+    print(f"  - Carga Pawer (total):  {len(df_carga)}")
+    print(f"  - BICE (total):         {len(df_bice)}")
+
+    # ── Filtrar solo aprobados en la carga ───────────────────────────────────
+    total_carga = len(df_carga)
+    if 'Estado póliza' in df_carga.columns:
+        df_carga['Estado póliza'] = df_carga['Estado póliza'].astype(str).str.upper().str.strip()
+        df_carga = df_carga[df_carga['Estado póliza'] == 'APROBADO'].copy()
+        filtrados = total_carga - len(df_carga)
+        print(f"  - Carga Pawer (aprobados): {len(df_carga)} ({filtrados} no aprobados filtrados)")
+
+    # ── Filtrar activos en BICE ──────────────────────────────────────────────
     total_bice = len(df_bice)
     if 'Estado' in df_bice.columns:
         df_bice = filtrar_activos(df_bice, 'Estado')
         print(f"  - BICE (activos): {len(df_bice)} ({total_bice - len(df_bice)} inactivos filtrados)")
-    
-    # Procesar RUTs
+
+    # ── Procesar RUTs ────────────────────────────────────────────────────────
     print("\n🔧 Procesando RUTs...")
-    
-    # Normalizar RUTs en archivos de Altas (RUT + DV separados)
-    df_carga_cencosud = normalizar_ruts_dataframe_southbridge(df_carga_cencosud, 'Rut propietario', 'Propietario DV')
-    df_carga_mercer = normalizar_ruts_dataframe_southbridge(df_carga_mercer, 'Rut propietario', 'Propietario DV')
-    
-    # Normalizar RUTs en archivo BICE
+
+    df_carga = normalizar_ruts_dataframe_southbridge(df_carga, 'Rut propietario', 'Propietario DV')
     df_bice = normalizar_ruts_dataframe_southbridge(df_bice, 'RUT')
-    
-    print(f"  ✓ RUTs válidos: Cencosud={len(df_carga_cencosud)}, Mercer={len(df_carga_mercer)}, BICE={len(df_bice)}")
-    
-    # Obtener sets de RUTs únicos
-    ruts_cencosud = set(df_carga_cencosud['RUT_NORM'].unique())
-    ruts_mercer = set(df_carga_mercer['RUT_NORM'].unique())
-    ruts_bice = set(df_bice['RUT_NORM'].unique())
-    
-    # Combinar RUTs de ambas cargas
-    ruts_carga_total = ruts_cencosud | ruts_mercer
-    
-    print("\n🔢 RUTs únicos:")
-    print(f"  - Altas Cencosud: {len(ruts_cencosud)}")
-    print(f"  - Altas Mercer: {len(ruts_mercer)}")
-    print(f"  - Altas Total (Cencosud + Mercer): {len(ruts_carga_total)}")
-    print(f"  - BICE: {len(ruts_bice)}")
-    
-    # Realizar comparaciones
+
+    print(f"  ✓ RUTs válidos: Carga={len(df_carga)}, BICE={len(df_bice)}")
+
+    # ── Normalizar extrainfo del BICE ─────────────────────────────────────────
+    if COL_EXTRA_INFO not in df_bice.columns:
+        print(f"⚠️  Advertencia: el archivo BICE no tiene columna '{COL_EXTRA_INFO}'. La comparación será solo por RUT.")
+        df_bice['EXTRA_INFO_NORM'] = ''
+    else:
+        # Normalizar: tomar solo la parte antes del ';' (ej. "Autoplanet;Poliza 2" → "Autoplanet")
+        df_bice['EXTRA_INFO_NORM'] = (
+            df_bice[COL_EXTRA_INFO].astype(str).str.strip()
+            .str.split(';').str[0].str.strip()
+        )
+
+    df_carga['CANAL_NORM'] = df_carga[COL_CANAL].astype(str).str.strip()
+
+    # Conteo de pares (RUT_NORM, Extra Info) en BICE
+    bice_pair_counts = df_bice.groupby(['RUT_NORM', 'EXTRA_INFO_NORM']).size().to_dict()
+
+    # ── Comparación fila a fila por (RUT, Canal) ─────────────────────────────
+    df_carga = df_carga.reset_index(drop=True)
+    # Rango de cada fila dentro de su grupo (RUT, Canal)
+    df_carga['RANK_EN_CANAL'] = df_carga.groupby(['RUT_NORM', 'CANAL_NORM']).cumcount()
+    # Cuántas ya están en BICE con ese mismo extrainfo
+    df_carga['EN_BICE_COUNT'] = df_carga.apply(
+        lambda r: bice_pair_counts.get((r['RUT_NORM'], r['CANAL_NORM']), 0), axis=1
+    )
+    # Una fila está cubierta si su rango < lo que ya hay en BICE para ese (RUT, Canal)
+    df_carga['EN_BICE'] = df_carga['RANK_EN_CANAL'] < df_carga['EN_BICE_COUNT']
+
+    df_filas_en_bice  = df_carga[df_carga['EN_BICE']]
+    df_filas_sin_bice = df_carga[~df_carga['EN_BICE']]
+
+    # ── Conteo inverso: entradas en BICE que NO tienen correspondencia en carga
+    # Para cada (RUT, canal) en BICE, cuántas superan las de la carga
+    carga_pair_counts = df_carga.groupby(['RUT_NORM', 'CANAL_NORM']).size().to_dict()
+    bice_sin_carga_count = 0
+    bice_sin_carga_detalle = {}  # canal → cantidad
+    for (rut, canal), bice_cnt in bice_pair_counts.items():
+        carga_cnt = carga_pair_counts.get((rut, canal), 0)
+        extra = bice_cnt - carga_cnt
+        if extra > 0:
+            bice_sin_carga_count += extra
+            bice_sin_carga_detalle[canal] = bice_sin_carga_detalle.get(canal, 0) + extra
+
+    print(f"\n🔢 Cuadre general:")
+    print(f"  ┌─ Carga Pawer    : {len(df_carga)}")
+    print(f"  │    ✅ Ya en BICE : {len(df_filas_en_bice)}")
+    print(f"  │    ⚠️  Sin BICE  : {len(df_filas_sin_bice)}")
+    print(f"  └─ BICE (DB)      : {len(df_bice)}")
+    print(f"       ✅ En carga   : {len(df_filas_en_bice)}")
+    print(f"       ➕ Solo en DB  : {bice_sin_carga_count}  ← en DB pero no en la carga")
+    if bice_sin_carga_detalle:
+        for canal in sorted(bice_sin_carga_detalle):
+            print(f"            [{canal}]: {bice_sin_carga_detalle[canal]}")
+    print(f"  📐 Verificación: {len(df_filas_en_bice)} + {bice_sin_carga_count} = {len(df_filas_en_bice) + bice_sin_carga_count} (total DB: {len(df_bice)})")
+
+    # Resumen por canal de los que faltan en BICE
+    if len(df_filas_sin_bice) > 0:
+        print(f"\n  📋 Faltantes por canal (a cargar):")
+        for canal, cnt in df_filas_sin_bice['CANAL_NORM'].value_counts(dropna=False).items():
+            ruts_canal = set(df_filas_sin_bice[df_filas_sin_bice['CANAL_NORM'] == canal]['RUT_NORM'])
+            ya_en_bice_otro = sum(1 for r in ruts_canal if any(
+                bice_pair_counts.get((r, ei), 0) > 0
+                for ei in df_bice['EXTRA_INFO_NORM'].unique() if ei != canal
+            ))
+            nota = f" ({ya_en_bice_otro} RUTs ya en DB con otro extrainfo)" if ya_en_bice_otro > 0 else ''
+            print(f"       [{canal}]: {cnt}{nota}")
+
+    # ── Comparaciones (para Excel de resultados, por (RUT, Canal) único) ─────
     print("\n🔍 Realizando comparaciones...")
-    
-    # 1. Coincidencias
-    coincidencias_cencosud = ruts_cencosud & ruts_bice
-    coincidencias_mercer = ruts_mercer & ruts_bice
-    
-    # 2. En Carga pero no en BICE
-    cencosud_sin_bice = ruts_cencosud - ruts_bice
-    mercer_sin_bice = ruts_mercer - ruts_bice
-    
-    # 3. En BICE pero no en ninguna carga (IMPORTANTE: revisar)
-    bice_sin_ninguna_carga = ruts_bice - ruts_carga_total
-    
-    print("\n" + "="*80)
+
+    print("\n" + "=" * 80)
     print("📊 RESULTADOS DE LA COMPARACIÓN")
-    print("="*80)
-    
-    print("\n✅ COINCIDENCIAS:")
-    print(f"  - Cencosud: {len(coincidencias_cencosud)}")
-    print(f"  - Mercer: {len(coincidencias_mercer)}")
-    print(f"  - Total: {len(coincidencias_cencosud | coincidencias_mercer)}")
-    
-    print("\n⚠️  INCONSISTENCIAS:")
-    print(f"  1. RUTs en Altas Cencosud pero NO en BICE: {len(cencosud_sin_bice)}")
-    print(f"  2. RUTs en Altas Mercer pero NO en BICE: {len(mercer_sin_bice)}")
-    print(f"  3. ⚠️  RUTs en BICE pero NO en ninguna Carga: {len(bice_sin_ninguna_carga)} (PONER OJO)")
-    
-    # Crear DataFrames de resultados
+    print("=" * 80)
+
+    print(f"\n✅ Pólizas ya en BICE:  {len(df_filas_en_bice)} / {len(df_carga)}")
+    print(f"⚠️  Pólizas sin BICE:   {len(df_filas_sin_bice)} / {len(df_carga)}")
+
+    # ── Construir DataFrame de resultados (por par RUT + Canal) ─────────────
     resultados = []
-    
-    # 1. Coincidencias Cencosud
-    for rut in coincidencias_cencosud:
-        reg_carga = df_carga_cencosud[df_carga_cencosud['RUT_NORM'] == rut].iloc[0]
-        reg_bice = df_bice[df_bice['RUT_NORM'] == rut].iloc[0]
-        cantidad_carga = len(df_carga_cencosud[df_carga_cencosud['RUT_NORM'] == rut])
-        cantidad_bice = len(df_bice[df_bice['RUT_NORM'] == rut])
-        
-        # Normalizar nombres y apellidos
-        nombre_carga = normalizar_nombre(reg_carga.get(NOMBRE_PROPIETARIO, ''))
-        apellido_pat = normalizar_nombre(reg_carga.get(APELLIDO_PATERNO_PROPIETARIO, ''))
-        apellido_mat = normalizar_nombre(reg_carga.get(APELLIDO_MATERNO_PROPIETARIO, ''))
+
+    for (rut, canal), grp in df_carga.groupby(['RUT_NORM', 'CANAL_NORM']):
+        carga_count = len(grp)
+        bice_count  = bice_pair_counts.get((rut, canal), 0)
+        reg_carga   = grp.iloc[0]
+
+        nombre_carga  = normalizar_nombre(reg_carga.get(NOMBRE_PROPIETARIO, ''))
+        apellido_pat  = normalizar_nombre(reg_carga.get(APELLIDO_PATERNO_PROPIETARIO, ''))
+        apellido_mat  = normalizar_nombre(reg_carga.get(APELLIDO_MATERNO_PROPIETARIO, ''))
         apellidos_carga = f"{apellido_pat} {apellido_mat}".strip()
-        nombre_bice = normalizar_nombre(reg_bice.get('Nombre', ''))
-        apellido_bice = normalizar_nombre(reg_bice.get('Apellido', ''))
-        
-        estado = 'DIFERENCIA_CANTIDAD_CENCOSUD' if cantidad_carga != cantidad_bice else 'COINCIDENCIA_CENCOSUD'
-        
+
+        bice_matches = df_bice[(df_bice['RUT_NORM'] == rut) & (df_bice['EXTRA_INFO_NORM'] == canal)]
+        reg_bice = bice_matches.iloc[0] if len(bice_matches) > 0 else None
+
+        # También revisar si el RUT está en BICE con OTRO extrainfo
+        bice_otros = df_bice[(df_bice['RUT_NORM'] == rut) & (df_bice['EXTRA_INFO_NORM'] != canal)]
+        extrainfo_en_bice = ', '.join(bice_otros['EXTRA_INFO_NORM'].unique()) if len(bice_otros) > 0 else ''
+
+        if bice_count == 0 and len(bice_otros) > 0:
+            estado = 'CARGA_SIN_BICE'
+            observacion = f'FALTA [{canal}] - RUT existe en BICE pero con extrainfo: [{extrainfo_en_bice}]'
+        elif bice_count == 0:
+            estado = 'CARGA_SIN_BICE'
+            observacion = f'FALTA - RUT en Carga [{canal}] pero NO en BICE con ese extrainfo'
+        elif carga_count <= bice_count:
+            estado = 'COINCIDENCIA'
+            observacion = f'OK - {carga_count} póliza(s) ya en BICE para [{canal}]'
+        else:
+            # carga_count > bice_count pero bice_count > 0:
+            # hay pólizas ya en BICE, las faltantes van al CSV → es una coincidencia parcial
+            estado = 'COINCIDENCIA_PARCIAL'
+            faltantes = carga_count - bice_count
+            observacion = f'PARCIAL [{canal}] - {bice_count} póliza(s) ya en BICE, {faltantes} faltante(s) exportada(s) al CSV'
+
         resultados.append({
             'RUT': rut,
             'ESTADO': estado,
-            'TIPO': 'CENCOSUD',
+            'CANAL': canal,
             'NOMBRE_CARGA': nombre_carga,
             'APELLIDOS_CARGA': apellidos_carga,
-            'NOMBRE_BICE': nombre_bice,
-            'APELLIDO_BICE': apellido_bice,
+            'NOMBRE_BICE': normalizar_nombre(reg_bice.get('Nombre', '')) if reg_bice is not None else '',
+            'APELLIDO_BICE': normalizar_nombre(reg_bice.get('Apellido', '')) if reg_bice is not None else '',
             'EMAIL_CARGA': reg_carga.get(EMAIL_PROPIETARIO, ''),
-            'EMAIL_BICE': reg_bice.get('Email', ''),
-            'CANTIDAD_CARGA': cantidad_carga,
-            'CANTIDAD_BICE': cantidad_bice,
-            'OBSERVACION': 'OK - RUT presente en ambos archivos' if estado == 'COINCIDENCIA_CENCOSUD' else f'DIFERENCIA - Carga tiene {cantidad_carga}, BICE tiene {cantidad_bice}'
+            'EMAIL_BICE': reg_bice.get('Email', '') if reg_bice is not None else '',
+            'CANTIDAD_POLIZAS_CARGA': carga_count,
+            'CANTIDAD_BICE': bice_count,
+            'EXTRAINFO_BICE_OTROS': extrainfo_en_bice,
+            'OBSERVACION': observacion,
         })
-    
-    # 2. Coincidencias Mercer
-    for rut in coincidencias_mercer:
-        reg_carga = df_carga_mercer[df_carga_mercer['RUT_NORM'] == rut].iloc[0]
-        reg_bice = df_bice[df_bice['RUT_NORM'] == rut].iloc[0]
-        cantidad_carga = len(df_carga_mercer[df_carga_mercer['RUT_NORM'] == rut])
-        cantidad_bice = len(df_bice[df_bice['RUT_NORM'] == rut])
-        
-        # Normalizar nombres y apellidos
-        nombre_carga = normalizar_nombre(reg_carga.get(NOMBRE_PROPIETARIO, ''))
-        apellido_pat = normalizar_nombre(reg_carga.get(APELLIDO_PATERNO_PROPIETARIO, ''))
-        apellido_mat = normalizar_nombre(reg_carga.get(APELLIDO_MATERNO_PROPIETARIO, ''))
-        apellidos_carga = f"{apellido_pat} {apellido_mat}".strip()
-        nombre_bice = normalizar_nombre(reg_bice.get('Nombre', ''))
-        apellido_bice = normalizar_nombre(reg_bice.get('Apellido', ''))
-        
-        estado = 'DIFERENCIA_CANTIDAD_MERCER' if cantidad_carga != cantidad_bice else 'COINCIDENCIA_MERCER'
-        
-        resultados.append({
-            'RUT': rut,
-            'ESTADO': estado,
-            'TIPO': 'MERCER',
-            'NOMBRE_CARGA': nombre_carga,
-            'APELLIDOS_CARGA': apellidos_carga,
-            'NOMBRE_BICE': nombre_bice,
-            'APELLIDO_BICE': apellido_bice,
-            'EMAIL_CARGA': reg_carga.get(EMAIL_PROPIETARIO, ''),
-            'EMAIL_BICE': reg_bice.get('Email', ''),
-            'CANTIDAD_CARGA': cantidad_carga,
-            'CANTIDAD_BICE': cantidad_bice,
-            'OBSERVACION': 'OK - RUT presente en ambos archivos' if estado == 'COINCIDENCIA_MERCER' else f'DIFERENCIA - Carga tiene {cantidad_carga}, BICE tiene {cantidad_bice}'
-        })
-    
-    # 3. En Cencosud pero no en BICE (HAY QUE AGREGAR)
-    for rut in cencosud_sin_bice:
-        reg_carga = df_carga_cencosud[df_carga_cencosud['RUT_NORM'] == rut].iloc[0]
-        
-        # Normalizar nombres y apellidos
-        nombre_carga = normalizar_nombre(reg_carga.get(NOMBRE_PROPIETARIO, ''))
-        apellido_pat = normalizar_nombre(reg_carga.get(APELLIDO_PATERNO_PROPIETARIO, ''))
-        apellido_mat = normalizar_nombre(reg_carga.get(APELLIDO_MATERNO_PROPIETARIO, ''))
-        apellidos_carga = f"{apellido_pat} {apellido_mat}".strip()
-        
-        resultados.append({
-            'RUT': rut,
-            'ESTADO': 'CARGA_CENCOSUD_SIN_BICE',
-            'TIPO': 'CENCOSUD',
-            'NOMBRE_CARGA': nombre_carga,
-            'APELLIDOS_CARGA': apellidos_carga,
-            'NOMBRE_BICE': '',
-            'APELLIDO_BICE': '',
-            'EMAIL_CARGA': reg_carga.get(EMAIL_PROPIETARIO, ''),
-            'EMAIL_BICE': '',
-            'CANTIDAD_CARGA': len(df_carga_cencosud[df_carga_cencosud['RUT_NORM'] == rut]),
-            'CANTIDAD_BICE': 0,
-            'OBSERVACION': 'FALTA - RUT en Altas Cencosud pero NO en BICE (hay que agregar)'
-        })
-    
-    # 4. En Mercer pero no en BICE (HAY QUE AGREGAR)
-    for rut in mercer_sin_bice:
-        reg_carga = df_carga_mercer[df_carga_mercer['RUT_NORM'] == rut].iloc[0]
-        
-        # Normalizar nombres y apellidos
-        nombre_carga = normalizar_nombre(reg_carga.get(NOMBRE_PROPIETARIO, ''))
-        apellido_pat = normalizar_nombre(reg_carga.get(APELLIDO_PATERNO_PROPIETARIO, ''))
-        apellido_mat = normalizar_nombre(reg_carga.get(APELLIDO_MATERNO_PROPIETARIO, ''))
-        apellidos_carga = f"{apellido_pat} {apellido_mat}".strip()
-        
-        resultados.append({
-            'RUT': rut,
-            'ESTADO': 'CARGA_MERCER_SIN_BICE',
-            'TIPO': 'MERCER',
-            'NOMBRE_CARGA': nombre_carga,
-            'APELLIDOS_CARGA': apellidos_carga,
-            'NOMBRE_BICE': '',
-            'APELLIDO_BICE': '',
-            'EMAIL_CARGA': reg_carga.get(EMAIL_PROPIETARIO, ''),
-            'EMAIL_BICE': '',
-            'CANTIDAD_CARGA': len(df_carga_mercer[df_carga_mercer['RUT_NORM'] == rut]),
-            'CANTIDAD_BICE': 0,
-            'OBSERVACION': 'FALTA - RUT en Altas Mercer pero NO en BICE (hay que agregar)'
-        })
-    
-    # 5. En BICE pero no en ninguna carga (PONER OJO)
-    for rut in bice_sin_ninguna_carga:
-        reg_bice = df_bice[df_bice['RUT_NORM'] == rut].iloc[0]
-        
-        # Normalizar nombres y apellidos
-        nombre_bice = normalizar_nombre(reg_bice.get('Nombre', ''))
-        apellido_bice = normalizar_nombre(reg_bice.get('Apellido', ''))
-        
-        resultados.append({
-            'RUT': rut,
-            'ESTADO': 'BICE_SIN_NINGUNA_CARGA',
-            'TIPO': 'SOUTHBRIDGE',
-            'NOMBRE_CARGA': '',
-            'APELLIDOS_CARGA': '',
-            'NOMBRE_BICE': nombre_bice,
-            'APELLIDO_BICE': apellido_bice,
-            'EMAIL_CARGA': '',
-            'EMAIL_BICE': reg_bice.get('Email', ''),
-            'CANTIDAD_CARGA': 0,
-            'CANTIDAD_BICE': len(df_bice[df_bice['RUT_NORM'] == rut]),
-            'OBSERVACION': '⚠️ PONER OJO - RUT en BICE pero NO en ninguna Altas (ni Cencosud ni Mercer)'
-        })
-    
-    # Crear DataFrame y guardar
+
+    # ── Guardar resultados ───────────────────────────────────────────────────
     df_resultados = pd.DataFrame(resultados)
-    
-    # Orden de estados
+
     orden_estados = {
-        'COINCIDENCIA_CENCOSUD': 1,
-        'COINCIDENCIA_MERCER': 2,
-        'DIFERENCIA_CANTIDAD_CENCOSUD': 3,
-        'DIFERENCIA_CANTIDAD_MERCER': 4,
-        'CARGA_CENCOSUD_SIN_BICE': 5,
-        'CARGA_MERCER_SIN_BICE': 6,
-        'BICE_SIN_NINGUNA_CARGA': 7
+        'COINCIDENCIA': 1,
+        'COINCIDENCIA_PARCIAL': 1,  # Va al archivo de coincidencias, no inconsistencias
+        'CARGA_SIN_BICE': 2,
     }
-    
-    # Usar función común para separar y guardar
+
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     df_coincidencias, df_inconsistencias, archivos = separar_y_guardar_resultados(
         df_resultados, script_dir, timestamp, orden_estados, prefijo='southbridge_'
     )
-    
-    # Imprimir resumen usando función común
+
     imprimir_resumen(df_coincidencias, df_inconsistencias, archivos)
-    
-    # Crear carpeta de resultado una sola vez
+
     resultado_dir = os.path.join(script_dir, 'resultado')
     os.makedirs(resultado_dir, exist_ok=True)
 
-    # Generar CSV especial para registros en CARGA CENCOSUD que NO están en BICE
-    df_cencosud_sin_bice = df_inconsistencias[df_inconsistencias['ESTADO'] == 'CARGA_CENCOSUD_SIN_BICE'].copy()
-    if len(df_cencosud_sin_bice) > 0:
-        df_csv_cencosud = pd.DataFrame({
-            'Nombre': df_cencosud_sin_bice['NOMBRE_CARGA'],
-            'Apellido': df_cencosud_sin_bice['APELLIDOS_CARGA'],
-            'Email': df_cencosud_sin_bice['EMAIL_CARGA'],
-            'RUT': df_cencosud_sin_bice['RUT']
-        })
-        
-        from utils.file_handlers import guardar_csv_formato_especial
-        archivo_csv_cencosud = os.path.join(resultado_dir, f'carga_sin_bice_cencosud_{timestamp}.csv')
-        guardar_csv_formato_especial(df_csv_cencosud, archivo_csv_cencosud)
-        print(f"   📄 Carga Cencosud sin BICE (hay que agregar): {os.path.basename(archivo_csv_cencosud)}")
-    
-    # Generar CSV especial para registros en CARGA MERCER que NO están en BICE
-    df_mercer_sin_bice = df_inconsistencias[df_inconsistencias['ESTADO'] == 'CARGA_MERCER_SIN_BICE'].copy()
-    if len(df_mercer_sin_bice) > 0:
-        df_csv_mercer = pd.DataFrame({
-            'Nombre': df_mercer_sin_bice['NOMBRE_CARGA'],
-            'Apellido': df_mercer_sin_bice['APELLIDOS_CARGA'],
-            'Email': df_mercer_sin_bice['EMAIL_CARGA'],
-            'RUT': df_mercer_sin_bice['RUT']
-        })
-        
-        from utils.file_handlers import guardar_csv_formato_especial
-        archivo_csv_mercer = os.path.join(resultado_dir, f'carga_sin_bice_mercer_{timestamp}.csv')
-        guardar_csv_formato_especial(df_csv_mercer, archivo_csv_mercer)
-        print(f"   📄 Carga Mercer sin BICE (hay que agregar): {os.path.basename(archivo_csv_mercer)}")
-    
-    # Generar CSV especial para registros en BICE que NO están en ninguna carga (PONER OJO)
-    df_bice_sin_carga = df_inconsistencias[df_inconsistencias['ESTADO'] == 'BICE_SIN_NINGUNA_CARGA'].copy()
-    if len(df_bice_sin_carga) > 0:
-        df_csv_bice = pd.DataFrame({
-            'Nombre': df_bice_sin_carga['NOMBRE_BICE'],
-            'Apellido': df_bice_sin_carga['APELLIDO_BICE'],
-            'Email': df_bice_sin_carga['EMAIL_BICE'],
-            'RUT': df_bice_sin_carga['RUT']
-        })
-        
-        from utils.file_handlers import guardar_csv_formato_especial
-        archivo_csv_bice = os.path.join(resultado_dir, f'bice_sin_ninguna_carga_southbridge_{timestamp}.csv')
-        guardar_csv_formato_especial(df_csv_bice, archivo_csv_bice, solo_rut=True)
-        print(f"   ⚠️  BICE sin ninguna Carga (PONER OJO): {os.path.basename(archivo_csv_bice)}")
-    
-    # Mostrar muestras
+    # ── Mapas de BICE para resolver slots y conflictos de email ─────────────
+    # bice_email_slots[rut_norm] = {email_lower: slot_index}
+    # Determina qué email ocupa qué slot (0 = RUT base, 1 = RUT+0, etc.)
+    bice_email_slots = {}
+    for _, row in df_bice.iterrows():
+        rut = row['RUT_NORM']
+        email = str(row.get('Email', '') or '').strip().lower()
+        if not email:
+            continue
+        if rut not in bice_email_slots:
+            bice_email_slots[rut] = {}
+        if email not in bice_email_slots[rut]:
+            bice_email_slots[rut][email] = len(bice_email_slots[rut])
+
+    # bice_email_ruts[email] = set of rut_norms → para detectar conflictos cross-RUT
+    bice_email_ruts = {}
+    for _, row in df_bice.iterrows():
+        email = str(row.get('Email', '') or '').strip().lower()
+        rut = row['RUT_NORM']
+        if not email:
+            continue
+        if email not in bice_email_ruts:
+            bice_email_ruts[email] = set()
+        bice_email_ruts[email].add(rut)
+
+    # CSV por Canal: todas las filas de Carga que NO están en BICE (por póliza/fila)
+    df_carga_filas_sin_bice = df_filas_sin_bice.copy()
+    if len(df_carga_filas_sin_bice) > 0:
+        canales = df_carga_filas_sin_bice[COL_CANAL].dropna().astype(str).str.strip().unique()
+        for canal in sorted(canales):
+            df_canal = df_carga_filas_sin_bice[
+                df_carga_filas_sin_bice[COL_CANAL].astype(str).str.strip() == canal
+            ].copy()
+            if len(df_canal) == 0:
+                continue
+
+            df_canal = df_canal.reset_index(drop=True)
+            df_canal['EMAIL_NORM'] = df_canal[EMAIL_PROPIETARIO].astype(str).str.strip().str.lower()
+
+            # ── Asignar RANGO_EMAIL respetando los slots ya ocupados en BICE ──
+            # Si el email ya existe en BICE para este RUT → usa ese slot (RUT sin ceros extra)
+            # Si el email es nuevo para este RUT → slot siguiente al último de BICE
+            new_email_slots = {}  # rut → {email_nuevo: slot_asignado}
+            rangos = []
+            for _, row in df_canal.iterrows():
+                rut = row['RUT_NORM']
+                email = row['EMAIL_NORM']
+                slots_bice = bice_email_slots.get(rut, {})
+
+                if email in slots_bice:
+                    # Email ya registrado en BICE para este RUT → mantiene su slot
+                    rangos.append(slots_bice[email])
+                else:
+                    # Email nuevo: asignar siguiente slot libre después de BICE
+                    if rut not in new_email_slots:
+                        new_email_slots[rut] = {}
+                    if email not in new_email_slots[rut]:
+                        next_slot = len(slots_bice) + len(new_email_slots[rut])
+                        new_email_slots[rut][email] = next_slot
+                    rangos.append(new_email_slots[rut][email])
+
+            df_canal['RANGO_EMAIL'] = rangos
+            df_canal['RUT_FINAL'] = df_canal.apply(
+                lambda r: r['RUT_NORM'] + ('0' * r['RANGO_EMAIL']), axis=1
+            )
+
+            # ── Resolver conflictos de email con otros RUTs en BICE ──────────
+            # Si el email ya lo usa OTRO RUT en BICE → agregar -copy
+            emails_salida = []
+            for _, row in df_canal.iterrows():
+                rut = row['RUT_NORM']
+                email = row['EMAIL_NORM']
+                candidate = email
+                while candidate in bice_email_ruts:
+                    ruts_con_ese_email = bice_email_ruts[candidate]
+                    if ruts_con_ese_email <= {rut}:
+                        break  # Solo este RUT lo usa → sin conflicto
+                    candidate = _agregar_copy(candidate)
+                emails_salida.append(candidate)
+            df_canal['EMAIL_FINAL'] = emails_salida
+
+            ruts_con_ceros  = (df_canal['RANGO_EMAIL'] > 0).sum()
+            emails_con_copy = sum(1 for o, f in zip(df_canal['EMAIL_NORM'], df_canal['EMAIL_FINAL']) if o != f)
+
+            df_csv_canal = pd.DataFrame({
+                'Nombre': df_canal[NOMBRE_PROPIETARIO].apply(normalizar_nombre),
+                'Apellido': df_canal.apply(
+                    lambda r: f"{normalizar_nombre(r.get(APELLIDO_PATERNO_PROPIETARIO, ''))} "
+                              f"{normalizar_nombre(r.get(APELLIDO_MATERNO_PROPIETARIO, ''))}".strip(),
+                    axis=1
+                ),
+                'Email': df_canal['EMAIL_FINAL'],
+                'RUT': df_canal['RUT_FINAL'],
+            })
+
+            # Nombre de archivo limpio (sin espacios)
+            canal_filename = canal.replace(' ', '_').replace('/', '-')
+            archivo_csv_canal = os.path.join(
+                resultado_dir, f'carga_sin_bice_{canal_filename}_{timestamp}.csv'
+            )
+            _guardar_csv_con_canal(df_csv_canal, archivo_csv_canal)
+            info = []
+            if ruts_con_ceros  > 0: info.append(f"{ruts_con_ceros} RUTs con ceros")
+            if emails_con_copy > 0: info.append(f"{emails_con_copy} emails con -copy")
+            extra_str = f"  [{', '.join(info)}]" if info else ''
+            print(f"   📄 [{canal}] {len(df_csv_canal)} registros → {os.path.basename(archivo_csv_canal)}{extra_str}")
+
+    # Muestra de inconsistencias
     if len(df_inconsistencias) > 0:
         print("\n🔍 Muestra de inconsistencias (primeros 10):")
-        columnas_mostrar = ['RUT', 'ESTADO', 'TIPO', 'NOMBRE_CARGA', 'NOMBRE_BICE']
+        columnas_mostrar = ['RUT', 'ESTADO', 'CANAL', 'NOMBRE_CARGA', 'NOMBRE_BICE']
         print(df_inconsistencias.head(10)[columnas_mostrar].to_string(index=False))
-    
-    print("\n" + "="*80)
+
+    print("\n" + "=" * 80)
     print("✅ Proceso completado")
-    print("="*80)
+    print("=" * 80)
+
+
+
+
+def _agregar_copy(email):
+    """
+    Añade o incrementa el sufijo -copy en un email:
+      user@d.com → user-copy@d.com → user--copy@d.com → user---copy@d.com ...
+    """
+    if '@' in email:
+        nombre, dominio = email.rsplit('@', 1)
+        # Si ya termina en 'copy', inserta un guion extra antes de 'copy'
+        if nombre.endswith('copy'):
+            nombre = nombre[:-4] + '-copy'
+        else:
+            nombre = nombre + '-copy'
+        return f"{nombre}@{dominio}"
+    return f"{email}-copy"
+
+
+def _guardar_csv_con_canal(df, archivo_salida):
+    """
+    Guarda el CSV de usuarios a agregar.
+    Formato: "Nombre,Apellido,Email,RUT"
+    """
+    columnas = ['Nombre', 'Apellido', 'Email', 'RUT']
+    with open(archivo_salida, 'w', encoding='utf-8-sig') as f:
+        encabezado = ','.join(columnas)
+        f.write(f'"{encabezado}",\n')
+        for _, row in df.iterrows():
+            valores = ','.join(str(row.get(c, '')) for c in columnas)
+            f.write(f'"{valores}",\n')
 
 
 if __name__ == "__main__":
