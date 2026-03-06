@@ -1,11 +1,11 @@
 Select u.id, u.email, u.name, u.surname, b.id, b.name, usr.id, usr."accountNumber", usr."accountType" from users as u
 inner join "users-banks-relationship" as usr on usr."userId"= u."id"
 inner join banks as b on b.id=usr."bankId"
-where u.email='alfredo.saez@sonda.com';
+where u.email='gabriela.olivares@soprole.cl';
 
-Select * from users as u
+Select ubr.* from users as u
 inner join "users-banks-relationship" as ubr on ubr."userId"= u."id"
-where u.email='alfredo.saez@sonda.com';
+where u.email='gabriela.olivares@soprole.cl';
 --where u.rut = '164274535'
 
 -- user: 598a068c-778b-494e-969a-379d75c5e63e

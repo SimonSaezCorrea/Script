@@ -1,5 +1,5 @@
-SET "vars.fechaInicio" = '2025-12-03T03:00:00.000Z';
-SET "vars.fechaFin" = '2025-12-04T03:00:00.000Z';
+SET "vars.fechaInicio" = '2026-02-27T03:00:00.000Z';
+SET "vars.fechaFin" = '2026-02-28T03:00:00.000Z';
 
 SELECT 
 	c.id as "companyId", 

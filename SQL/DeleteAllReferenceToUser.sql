@@ -7,8 +7,8 @@ DECLARE
     -- ===============================================================
     -- CONFIGURACIÓN: INGRESA LOS IDS DEL USUARIO AQUÍ
     -- ===============================================================
-    v_user_uuid uuid := '9be93b97-a77e-4590-ac0c-3c38c73d3637';        -- Ej: 'a0eebc99-9c0b-...'
-    v_mongo_id varchar := '699f1475ff5f740034db1259';  -- Ej: '64b1f...'
+    v_user_uuid uuid := '56c3bc6e-509c-4097-ad08-8510eb4972d8';        -- Ej: 'a0eebc99-9c0b-...'
+    v_mongo_id varchar := '656f8484e3e9672eeafc110b';  -- Ej: '64b1f...'
     -- ===============================================================
 BEGIN
 
