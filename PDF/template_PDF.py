@@ -21,7 +21,7 @@ def generar_nombre_salida(archivo_entrada):
     # Retornar con la misma extensión
     return str(ruta.parent / f"{nombre_sin_extension}{ruta.suffix}")
 
-def crear_plantilla_contrato(input_path, output_path, isBTC=False):
+def crear_plantilla_contrato(input_path, output_path, isB2C=False):
     reader = PdfReader(input_path)
     writer = PdfWriter()
 
@@ -59,7 +59,7 @@ def crear_plantilla_contrato(input_path, output_path, isBTC=False):
         {"id": "startDate",     "y": 467.5,     "x": 160}, # Vigencia a contar de
     ]
 
-    campos_BTC = [
+    campos_B2C = [
         {"id": "price",         "y": 376,       "x": 219,   "w_box": 100}, # Banco
         {"id": "iva",           "y": 376,       "x": 322.5, "w_box": 50}, # Tipo de Cuenta
         {"id": "totalPrice",    "y": 376,       "x": 377,   "w_box": 160}, # Número de Cuenta
@@ -118,9 +118,9 @@ def crear_plantilla_contrato(input_path, output_path, isBTC=False):
         # Agregar el campo al array de campos del formulario
         fields.append(field_ref)
 
-    # Si es BTC, agregar campos adicionales
-    if isBTC:
-        for campo in campos_BTC:
+    # Si es B2C, agregar campos adicionales
+    if isB2C:
+        for campo in campos_B2C:
             y_pos = campo["y"]
             x_pos = campo.get("x", 110)
             w_box = campo.get("w_box", 300)
@@ -191,12 +191,12 @@ def crear_plantilla_contrato(input_path, output_path, isBTC=False):
     with open(output_path, "wb") as f:
         writer.write(f)
     
-    total_campos = len(campos) + (len(campos_BTC) if isBTC else 0)
+    total_campos = len(campos) + (len(campos_B2C) if isB2C else 0)
     print(f"✅ Plantilla generada: {output_path}")
     print(f"   - {total_campos} campos de formulario creados")
-    if isBTC:
+    if isB2C:
         print(f"   - Campos estándar: {', '.join([c['id'] for c in campos])}")
-        print(f"   - Campos BTC: {', '.join([c['id'] for c in campos_BTC])}")
+        print(f"   - Campos B2C: {', '.join([c['id'] for c in campos_B2C])}")
     else:
         print(f"   - Campos: {', '.join([c['id'] for c in campos])}")
 
@@ -222,16 +222,16 @@ if __name__ == "__main__":
     print(f"📄 Archivo de salida:  {archivo_salida}")
     print("=" * 60 + "\n")
     
-    # Preguntar si es BTC
-    respuesta_btc = input("¿Es un contrato BTC? (true/false): ").strip().lower()
-    isBTC = respuesta_btc in ['true', 't', 'verdadero', 'si', 'sí', 's', 'yes', 'y']
+    # Preguntar si es B2C
+    respuesta_B2C = input("¿Es un contrato B2C? (true/false): ").strip().lower()
+    isB2C = respuesta_B2C in ['true', 't', 'verdadero', 'si', 'sí', 's', 'yes', 'y']
     
-    if isBTC:
-        print("✓ Se agregarán campos adicionales de BTC (price, iva, totalPrice)")
+    if isB2C:
+        print("✓ Se agregarán campos adicionales de B2C (price, iva, totalPrice)")
     else:
         print("✓ Se usarán solo los campos estándar")
     try:
-        crear_plantilla_contrato(archivo_entrada, archivo_salida, isBTC)
+        crear_plantilla_contrato(archivo_entrada, archivo_salida, isB2C)
     except FileNotFoundError:
         print(f"❌ No encontré el archivo: {archivo_entrada}")
     except Exception as e:
