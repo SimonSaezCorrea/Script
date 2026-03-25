@@ -21,7 +21,8 @@ from "membership-payments" mp
 inner join memberships m on m.id = mp."membershipId" 
 inner join users u on u."mongoId" = m."userId" 
 inner join pets p on p.id = m."petId" 
-where mp."membershipId" = '9905bf10-30b1-11ef-b4fc-ef6c48e94735'
+where mp."membershipId" = 'ce74cd00-098b-11ef-a535-9d13e0ca13f7'
+--where mp."mpPaymentId" = '146235686563'
 --where mp."idReferencePayment" = '2c9380848ef3876b018ef7981ac802b6'
 --where u.email = 'michellesegal6@gmail.com'
 --and mp."paymentGateway" = 'MercadoPago'
@@ -29,7 +30,7 @@ where mp."membershipId" = '9905bf10-30b1-11ef-b4fc-ef6c48e94735'
 order by mp."membershipId" asc, mp."paidAt" desc
 
 select * from "membership-payments" mp 
-where mp."membershipId" = '89a76680-dceb-11f0-8f1e-4db453a269cf'
+where mp."membershipId" = 'ce74cd00-098b-11ef-a535-9d13e0ca13f7'
 --where mp."idReferencePayment" like '379924ff7a45446d9e78c3d99ecd4910'
 --and mp."paymentGateway" = 'MercadoPago'
 order by "paidAt" desc
