@@ -116,19 +116,29 @@ def comparar_loreal():
     # Renombrar columna RUT de carga para normalización
     df_carga = df_carga.rename(columns={col_rut_carga: 'RUT'})
 
-    # Separar nombre completo en Nombre y Apellido (primeras dos palabras)
-    # y aplicar formato Title Case
-    def extraer_nombre(nombre_completo):
+    # Separar nombre completo en Apellido y Nombre según el formato:
+    # "Apellido1 Apellido2 Nombre1 Nombre2" → las primeras ceil(n/2) palabras son apellido,
+    # el resto son nombre. Ejemplos:
+    #   4 palabras → 2 apellidos + 2 nombres
+    #   3 palabras → 2 apellidos + 1 nombre
+    #   2 palabras → 1 apellido  + 1 nombre
+    import math
+
+    def split_nombre_completo(nombre_completo):
         if not nombre_completo or pd.isna(nombre_completo):
-            return ''
+            return '', ''
         partes = str(nombre_completo).strip().split()
-        return partes[0].capitalize() if len(partes) >= 1 else ''
+        n = len(partes)
+        n_apellido = math.ceil(n / 2)
+        apellido = ' '.join(p.capitalize() for p in partes[:n_apellido])
+        nombre = ' '.join(p.capitalize() for p in partes[n_apellido:])
+        return nombre, apellido
+
+    def extraer_nombre(nombre_completo):
+        return split_nombre_completo(nombre_completo)[0]
 
     def extraer_apellido(nombre_completo):
-        if not nombre_completo or pd.isna(nombre_completo):
-            return ''
-        partes = str(nombre_completo).strip().split()
-        return partes[1].capitalize() if len(partes) >= 2 else ''
+        return split_nombre_completo(nombre_completo)[1]
 
     if col_nombre_carga:
         df_carga['_Nombre'] = df_carga[col_nombre_carga].apply(extraer_nombre)
