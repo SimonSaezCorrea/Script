@@ -12,7 +12,8 @@ SELECT
     (SELECT COUNT(*) FROM ces WHERE "refundRequestId" = rr.id) AS ces_count,
     (SELECT COUNT(*) FROM "services-records" WHERE "refundRequestId" = rr.id) AS services_records_count
 FROM "refunds-requests" rr
-WHERE rr.id = '6376d8ce-8863-4693-bf71-6068fce5f0c9';
+--WHERE rr.id = '6376d8ce-8863-4693-bf71-6068fce5f0c9';
+WHERE rr."referenceIndex" = '6567'
 
 -- =====================================================
 -- ELIMINAR REFUND Y TODA SU DATA RELACIONADA
@@ -21,7 +22,7 @@ WHERE rr.id = '6376d8ce-8863-4693-bf71-6068fce5f0c9';
 
 DO $$
 DECLARE
-    v_refund_id UUID := '6376d8ce-8863-4693-bf71-6068fce5f0c9';
+    v_refund_id UUID := 'a25db096-9240-4269-9b1c-f0c4ba122bcf';
 BEGIN
 
     -- 1. Dongraf results (apunta a refunds-requests)

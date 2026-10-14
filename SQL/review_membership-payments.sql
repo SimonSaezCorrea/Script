@@ -1,7 +1,7 @@
 select 
 	mp.id as id_MP, 
-	mp."mpPaymentId",
-	mp."idReferencePayment",
+	mp."externalPaymentId",
+	mp."externalSubscriptionId",
 	mp.amount, 
 	mp."paidAt",
 	u.email, 
@@ -21,24 +21,24 @@ from "membership-payments" mp
 inner join memberships m on m.id = mp."membershipId" 
 inner join users u on u."mongoId" = m."userId" 
 inner join pets p on p.id = m."petId" 
-where mp."membershipId" = 'be606d30-5786-11f0-ad79-4f3949f65f4c'
---where mp."mpPaymentId" = '153314619317'
---where mp."idReferencePayment" = '2c9380848ef3876b018ef7981ac802b6'
---where u.email = 'michellesegal6@gmail.com'
+where mp."membershipId" = 'ab80d0a0-bbeb-11f0-9704-19175553abcb'
+--where mp."externalPaymentId" = '171166500494'
+--where mp."idReferencePayment" = '42a1e4f447194d358d9492992bb9d4b9'
+--where u.email = 'camilamorasoto@gmail.com'
 --and mp."paymentGateway" = 'MercadoPago'
 --where m."flowId" = 'sus_u0juzb963v'
 order by mp."membershipId" asc, mp."paidAt" desc
 
 select * from "membership-payments" mp 
-where mp."membershipId" = 'ede06560-83b9-11f0-bd37-fd81ada92f73'
---where mp."idReferencePayment" like '379924ff7a45446d9e78c3d99ecd4910'
+where mp."membershipId" = '690b5dc0-e0f4-11f0-8f1e-4db453a269cf'
+--where mp."idReferencePayment" like '3814a5b2ccdc4e11b6e70ac980124ed5'
 --and mp."paymentGateway" = 'MercadoPago'
 order by "paidAt" desc
 --order by "createdAt" desc
 
 select m.* from memberships m 
-left join users u on u."mongoId" = m."userId"
-where u.email like 'molinasalinas1993@gmail.com'
+left join users u on u."id" = m."userId"
+where u.email like 'rebkhdezp@gmail.com'
 --where u.rut like '%189156790%'
 --where u.email like 'ces%@ri%'
 --where name like 'M%' and u.surname like 'R%' and m."planId" ='aa4a3320-c502-11ee-8499-71c77429f54f'
