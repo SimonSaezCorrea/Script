@@ -3,8 +3,8 @@ where rut='234097396'
 --where email='camilomaldonadorecabal@gmail.com'
 
 -- Buscar usuario primero
--- select * from users where rut = '210843841'
--- select * from users where email = 'simon@somospawer.com'
+-- select id, rut, email from users where rut = '210843841';
+-- select id, rut, email from users where email = 'simon@somospawer.com';
 
 WITH p  AS (SELECT '3f540bac-630f-498f-b84a-2c8f2c0100e0'::uuid AS user_id),   -- 👈 solo cambia esto
 m  AS (SELECT id FROM memberships WHERE "userId" = (SELECT user_id FROM p)),

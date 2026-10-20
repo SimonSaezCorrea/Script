@@ -7,8 +7,8 @@ select * from memberships where "userId" = '618e80a860c8813c97909ded'
 
 WITH variables AS (
     SELECT 
-        '1797ae2e-4469-47a7-be32-528de8093517'::uuid AS v_user_uuid, 
-        '68b9ff8d05ec7100347a4eee'::varchar AS v_mongo_id
+        '84857409-cc58-46a8-a1d7-616c57f75ce0'::uuid AS v_user_uuid, 
+        '677fd78bf3f2e1003cd53b57'::varchar AS v_mongo_id
 ),
 summary AS (
     -- 1. TABLAS VINCULADAS POR UUID (Claves foráneas explícitas en tu SQL)

@@ -16,6 +16,8 @@ left join "plans" p
 left join countries c2 
 	on c2.id = p."countryId" 
 where m."acquisitionChannel" like '%b2c%'
+	and c."createdAt" > '2026-09-30' 
+	and c."createdAt" < '2026-12-31'
 group by c2.iso 
 
 -- CES por Pais y la cantidad Historica
